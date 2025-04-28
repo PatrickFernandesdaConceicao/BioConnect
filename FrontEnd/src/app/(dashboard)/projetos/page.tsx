@@ -232,7 +232,7 @@ export default function ProjetosPage() {
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todos</SelectItem>
+            <SelectItem value="TODOS">Todos</SelectItem>
             <SelectItem value="PENDENTE">Pendente</SelectItem>
             <SelectItem value="APROVADO">Aprovado</SelectItem>
             <SelectItem value="REJEITADO">Rejeitado</SelectItem>
@@ -246,7 +246,7 @@ export default function ProjetosPage() {
             <SelectValue placeholder="Área" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todas</SelectItem>
+            <SelectItem value="TODAS">Todas</SelectItem>
             <SelectItem value="Biotecnologia">Biotecnologia</SelectItem>
             <SelectItem value="Saúde">Saúde</SelectItem>
             <SelectItem value="Informação">Informação</SelectItem>

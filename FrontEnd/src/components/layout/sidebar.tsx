@@ -15,6 +15,8 @@ import {
   LogOut,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useTheme } from "@/components/theme-provider"; // Import custom useTheme hook
+import { ThemeProvider } from "@/components/theme-provider";
 
 const routes = [
   {
@@ -77,40 +79,63 @@ export const Sidebar = ({
   userImage,
 }: SidebarProps) => {
   const pathname = usePathname();
+  const { theme } = useTheme(); // Get current theme from custom provider
 
+  // Determine if dark mode is active based on theme value
+  const isDarkMode = theme === "dark";
   const isAdmin = userRole === "ADMIN" || userRole === "COORDENADOR";
 
   return (
-    <div className="space-y-4 py-4 flex flex-col h-full bg-slate-900 text-white">
+    <div
+      className={cn(
+        "space-y-4 py-4 flex flex-col h-full border-r-2",
+        isDarkMode ? "bg-background text-white" : "bg-white text-slate-900 "
+      )}
+    >
       <div className="px-3 py-2 flex-1">
-        <Link href="/dashboard" className="flex items-center pl-3 mb-8">
-          <div className="relative w-8 h-8 mr-4">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              className="w-full h-full text-white"
-            >
-              <path
-                d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-bold">BioConnect</h1>
-        </Link>
+        <div className="flex items-center justify-between pl-3 mb-8">
+          <Link href="/dashboard" className="flex items-center">
+            <div className="relative w-8 h-8 mr-4">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                className={cn(
+                  "w-full h-full",
+                  isDarkMode ? "text-white" : "text-slate-900"
+                )}
+              >
+                <path
+                  d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold">BioConnect</h1>
+          </Link>
+          <ThemeProvider
+            children=""
+            attribute="class"
+            defaultTheme="light"
+            enableSystem
+          />
+        </div>
         <div className="space-y-1">
           {routes.map((route) => (
             <Link
               key={route.href}
               href={route.href}
               className={cn(
-                "text-sm group flex p-3 w-full justify-start font-medium cursor-pointer hover:text-white hover:bg-white/10 rounded-lg transition",
+                "text-sm group flex p-3 w-full justify-start font-medium cursor-pointer rounded-lg transition",
                 pathname === route.href
-                  ? "bg-white/10 text-white"
-                  : "text-zinc-400"
+                  ? isDarkMode
+                    ? "bg-white/10 text-white"
+                    : "bg-slate-100 text-slate-900"
+                  : isDarkMode
+                  ? "text-zinc-400 hover:text-white hover:bg-white/10"
+                  : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
               )}
             >
               <div className="flex items-center flex-1">
@@ -122,8 +147,13 @@ export const Sidebar = ({
 
           {isAdmin && (
             <>
-              <div className="mt-6 mb-2 px-3">
-                <h2 className="text-xs uppercase text-zinc-400 font-semibold">
+              <div
+                className={cn(
+                  "mt-6 mb-2 px-3",
+                  isDarkMode ? "text-zinc-400" : "text-slate-500"
+                )}
+              >
+                <h2 className="text-xs uppercase font-semibold">
                   Administração
                 </h2>
               </div>
@@ -132,10 +162,14 @@ export const Sidebar = ({
                   key={route.href}
                   href={route.href}
                   className={cn(
-                    "text-sm group flex p-3 w-full justify-start font-medium cursor-pointer hover:text-white hover:bg-white/10 rounded-lg transition",
+                    "text-sm group flex p-3 w-full justify-start font-medium cursor-pointer rounded-lg transition",
                     pathname === route.href
-                      ? "bg-white/10 text-white"
-                      : "text-zinc-400"
+                      ? isDarkMode
+                        ? "bg-white/10 text-white"
+                        : "bg-slate-100 text-slate-900"
+                      : isDarkMode
+                      ? "text-zinc-400 hover:text-white hover:bg-white/10"
+                      : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
                   )}
                 >
                   <div className="flex items-center flex-1">
@@ -148,7 +182,12 @@ export const Sidebar = ({
           )}
         </div>
       </div>
-      <div className="px-3 py-2 border-t border-slate-700">
+      <div
+        className={cn(
+          "px-3 py-2 border-t",
+          isDarkMode ? "border-gray-800" : "border-slate-200"
+        )}
+      >
         <div className="flex items-center gap-x-4 pl-3 py-2">
           <Avatar>
             <AvatarImage src={userImage} />
@@ -158,9 +197,24 @@ export const Sidebar = ({
           </Avatar>
           <div className="flex flex-col">
             <span className="text-sm font-medium">{userName}</span>
-            <span className="text-xs text-zinc-400">{userRole}</span>
+            <span
+              className={
+                isDarkMode ? "text-xs text-zinc-400" : "text-xs text-slate-500"
+              }
+            >
+              {userRole}
+            </span>
           </div>
-          <Button variant="ghost" size="icon" className="ml-auto text-zinc-400">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "ml-auto",
+              isDarkMode
+                ? "text-zinc-400 hover:text-white"
+                : "text-slate-500 hover:text-slate-900"
+            )}
+          >
             <LogOut className="h-5 w-5" />
           </Button>
         </div>
