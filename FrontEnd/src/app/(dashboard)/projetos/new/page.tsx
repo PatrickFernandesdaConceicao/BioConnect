@@ -116,7 +116,7 @@ export default function NewProjetoPage() {
       console.log("Dados do projeto:", processedValues);
 
       // Exibir mensagem de sucesso
-      toast({
+      Sonner({
         title: "Projeto cadastrado com sucesso!",
         description: "O projeto foi enviado para aprovação.",
       });
@@ -125,7 +125,7 @@ export default function NewProjetoPage() {
       router.push("/projetos");
     } catch (error) {
       console.error("Erro ao cadastrar projeto:", error);
-      toast({
+      Sonner({
         title: "Erro ao cadastrar projeto",
         description: "Verifique os dados e tente novamente.",
         variant: "destructive",
