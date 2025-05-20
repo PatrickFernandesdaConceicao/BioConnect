@@ -2,6 +2,7 @@ package io.github.cursodsousa.sbootexpsecurity.api;
 
 import io.github.cursodsousa.sbootexpsecurity.domain.entity.Evento;
 import io.github.cursodsousa.sbootexpsecurity.domain.entity.Participante;
+import io.github.cursodsousa.sbootexpsecurity.domain.service.ParticipanteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
