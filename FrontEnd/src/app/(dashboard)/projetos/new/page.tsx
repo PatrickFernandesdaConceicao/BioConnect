@@ -1,13 +1,13 @@
 // app/(dashboard)/projetos/new/page.tsx
 "use client";
-
+import toast from 'react-hot-toast';
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-
+import api from '../../../services/api'
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -118,12 +118,28 @@ export default function NewProjetoPage() {
   const watchHasBudget = form.watch("hasBudget");
 
   // Função para lidar com o upload de arquivos
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (e.target.files && e.target.files.length > 0) {
+    try {
       const newFiles = Array.from(e.target.files);
+      
+      // Verificar tamanho dos arquivos (opcional)
+      const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+      const oversizedFiles = newFiles.filter(file => file.size > MAX_SIZE);
+      
+      if (oversizedFiles.length > 0) {
+        toast.error(`Alguns arquivos excedem o tamanho máximo de ${MAX_SIZE/1024/1024}MB`);
+        return;
+      }
+      
       setFiles((prev) => [...prev, ...newFiles]);
+      toast.success('Arquivo(s) adicionado(s) com sucesso');
+    } catch (error) {
+      toast.error('Erro ao adicionar arquivo(s)');
+      console.error(error);
     }
-  };
+  }
+};
 
   // Função para remover um arquivo da lista
   const removeFile = (index: number) => {
@@ -132,63 +148,61 @@ export default function NewProjetoPage() {
 
   // Função para lidar com o envio do formulário
   async function onSubmit(values: ProjetoFormValues) {
-    setIsSubmitting(true);
+  setIsSubmitting(true);
 
-    try {
-      // Verificar se a data de término é posterior à de início
-      if (
-        values.startDate &&
-        values.endDate &&
-        new Date(values.endDate) <= new Date(values.startDate)
-      ) {
-        Sonner({
-          title: "Erro de validação",
-          description: "A data de término deve ser posterior à data de início.",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Tratar os valores, como converter budget para número se necessário
-      const processedValues = {
-        ...values,
-        budget:
-          values.hasBudget && values.budget
-            ? parseFloat(
-                values.budget.replace(/[^\d.,]/g, "").replace(",", ".")
-              )
-            : null,
-        limiteParticipantes: values.limiteParticipantes
-          ? parseInt(values.limiteParticipantes)
-          : null,
-      };
-
-      // Simulação de envio com arquivos (seria substituído pela chamada real à API)
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      console.log("Dados do projeto:", processedValues);
-      console.log("Arquivos anexados:", files);
-
-      // Exibir mensagem de sucesso
-      Sonner({
-        title: "Projeto cadastrado com sucesso!",
-        description: "O projeto foi enviado para aprovação.",
-      });
-
-      // Redirecionar para a lista de projetos
-      router.push("/projetos");
-    } catch (error) {
-      console.error("Erro ao cadastrar projeto:", error);
-      Sonner({
-        title: "Erro ao cadastrar projeto",
-        description: "Verifique os dados e tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
+  try {
+    // Verificar data de término
+    if (values.startDate && values.endDate && new Date(values.endDate) <= new Date(values.startDate)) {
+      toast.error("A data de término deve ser posterior à data de início.");
       setIsSubmitting(false);
+      return;
     }
+
+    // Preparar dados
+    const projetoData = {
+      titulo: values.title,
+      descricao: values.description,
+      // ... todos os outros campos ...
+    };
+
+    // URL base
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+    const endpoint = `${apiUrl}/projetos`;
+
+    // Chamada à API
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(projetoData),
+    });
+
+    // Tratar resposta
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        errorData.message || 
+        `Erro ${response.status}: ${response.statusText}`
+      );
+    }
+
+    // Sucesso
+    toast.success('Projeto cadastrado com sucesso!');
+    router.push('/projetos');
+    
+  } catch (error) {
+    console.error('Erro completo:', error);
+    toast.error(error.message || 'Erro ao cadastrar projeto');
+    
+    // Log adicional para depuração
+    if (error instanceof Error) {
+      console.error('Stack trace:', error.stack);
+    }
+  } finally {
+    setIsSubmitting(false);
   }
+}
 
   return (
     <div className="space-y-6">
