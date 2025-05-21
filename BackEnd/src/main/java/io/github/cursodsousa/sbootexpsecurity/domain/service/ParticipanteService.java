@@ -1,7 +1,7 @@
 package io.github.cursodsousa.sbootexpsecurity.domain.service;
 
 import io.github.cursodsousa.sbootexpsecurity.domain.entity.Evento;
-import io.github.cursodsousa.sbootexpsecurity.domain.entity.Participante;
+import io.github.cursodsousa.sbootexpsecurity.domain.entity.ParticipanteEvento;
 import io.github.cursodsousa.sbootexpsecurity.domain.repository.EventoRepository;
 import io.github.cursodsousa.sbootexpsecurity.domain.repository.ParticipanteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,20 +18,20 @@ public class ParticipanteService {
     @Autowired
     private ParticipanteRepository participanteRepository;
 
-    public Evento adicionarParticipantes(Long eventoId, List<Participante> participantes) {
+    public Evento adicionarParticipantes(Long eventoId, List<ParticipanteEvento> participanteEventos) {
         Evento evento = eventoRepository.findById(eventoId)
                 .orElseThrow(() -> new IllegalArgumentException("Evento não encontrado com ID: " + eventoId));
 
-        for (Participante p : participantes) {
+        for (ParticipanteEvento p : participanteEventos) {
             p.setEvento(evento);
         }
 
-        participanteRepository.saveAll(participantes);
+        participanteRepository.saveAll(participanteEventos);
 
         return evento;
     }
 
-    public List<Participante> listarPorEvento(Long eventoId) {
+    public List<ParticipanteEvento> listarPorEvento(Long eventoId) {
         return participanteRepository.findByEventoId(eventoId);
     }
 }

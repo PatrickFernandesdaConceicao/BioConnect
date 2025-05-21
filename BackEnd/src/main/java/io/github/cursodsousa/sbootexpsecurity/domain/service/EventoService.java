@@ -2,7 +2,7 @@ package io.github.cursodsousa.sbootexpsecurity.domain.service;
 
 import io.github.cursodsousa.sbootexpsecurity.api.dto.EventoRequestDTO;
 import io.github.cursodsousa.sbootexpsecurity.domain.entity.Evento;
-import io.github.cursodsousa.sbootexpsecurity.domain.entity.Participante;
+import io.github.cursodsousa.sbootexpsecurity.domain.entity.ParticipanteEvento;
 import io.github.cursodsousa.sbootexpsecurity.domain.entity.Recursos;
 import io.github.cursodsousa.sbootexpsecurity.domain.repository.EventoRepository;
 import io.github.cursodsousa.sbootexpsecurity.domain.repository.ParticipanteRepository;
@@ -40,15 +40,15 @@ public class EventoService {
         evento.setVlTotalAprovado(dto.vlTotalAprovado);
 
         if (dto.participantes != null) {
-            List<Participante> participantes = dto.participantes.stream().map(p -> {
-                Participante participante = new Participante();
-                participante.setNome(p.nome);
-                participante.setEmail(p.email);
-                participante.setEvento(evento); // Associação bidirecional
-                return participante;
+            List<ParticipanteEvento> participanteEventos = dto.participantes.stream().map(p -> {
+                ParticipanteEvento participanteEvento = new ParticipanteEvento();
+                participanteEvento.setNome(p.nome);
+                participanteEvento.setEmail(p.email);
+                participanteEvento.setEvento(evento); // Associação bidirecional
+                return participanteEvento;
             }).collect(Collectors.toList());
 
-            evento.setParticipantes(participantes); // Agora você pode setar a lista de participantes
+            evento.setParticipanteEventos(participanteEventos); // Agora você pode setar a lista de participantes
         }
 
         return eventoRepository.save(evento); // Persiste o evento e seus participantes

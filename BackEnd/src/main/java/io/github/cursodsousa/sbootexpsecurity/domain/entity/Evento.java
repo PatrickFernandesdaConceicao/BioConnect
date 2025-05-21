@@ -23,17 +23,13 @@ public class Evento {
     private Long id;
 
     @OneToMany(mappedBy = "evento", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Participante> participantes;
+    private List<ParticipanteEvento> participanteEventos;
 
     @NotBlank(message = "O título é obrigatório")
     private String titulo;
 
     private String curso; //verificar
 
-    /*@ManyToOne
-    @JoinColumn(name = "curso_id")
-    private Curso curso;
-*/
 
     @NotNull(message = "A data de início é obrigatória")
     private LocalDate dataInicio;

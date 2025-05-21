@@ -13,7 +13,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "tb_curso")
+@Table(name = "curso")
 public class Curso {
 
     @Id
@@ -30,8 +30,4 @@ public class Curso {
     @OneToMany(mappedBy = "curso")
     private List<Evento> eventos;
 
-
-   // @ManyToOne
-  //  @JoinColumn(name = "coordenador_id")
-  //  private Pessoa coordenador;
 }

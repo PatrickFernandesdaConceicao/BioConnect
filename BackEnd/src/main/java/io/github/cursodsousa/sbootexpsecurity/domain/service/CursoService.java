@@ -32,8 +32,4 @@ public class CursoService {
         return cursoRepository.findByNomeContainingIgnoreCase(termo);
     }
 
-    //public List<Curso> buscarPorCoordenadorId(Long coordenadorId) {
-    //    return cursoRepository.findByCoordenadorId(coordenadorId);
-    //}
-
 }

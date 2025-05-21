@@ -1,7 +1,7 @@
 package io.github.cursodsousa.sbootexpsecurity.api;
 
 import io.github.cursodsousa.sbootexpsecurity.domain.entity.Evento;
-import io.github.cursodsousa.sbootexpsecurity.domain.entity.Participante;
+import io.github.cursodsousa.sbootexpsecurity.domain.entity.ParticipanteEvento;
 import io.github.cursodsousa.sbootexpsecurity.domain.service.ParticipanteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,15 +19,15 @@ public class ParticipanteRestController {
     @PostMapping
     public ResponseEntity<Evento> adicionarParticipantes(
             @PathVariable Long eventoId,
-            @RequestBody List<Participante> participantes
+            @RequestBody List<ParticipanteEvento> participanteEventos
     ) {
-        Evento evento = participanteService.adicionarParticipantes(eventoId, participantes);
+        Evento evento = participanteService.adicionarParticipantes(eventoId, participanteEventos);
         return ResponseEntity.ok(evento);
     }
 
     @GetMapping
-    public ResponseEntity<List<Participante>> listarParticipantes(@PathVariable Long eventoId) {
-        List<Participante> participantes = participanteService.listarPorEvento(eventoId);
-        return ResponseEntity.ok(participantes);
+    public ResponseEntity<List<ParticipanteEvento>> listarParticipantes(@PathVariable Long eventoId) {
+        List<ParticipanteEvento> participanteEventos = participanteService.listarPorEvento(eventoId);
+        return ResponseEntity.ok(participanteEventos);
     }
 }
