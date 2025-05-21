@@ -4,6 +4,7 @@ package io.github.cursodsousa.sbootexpsecurity.api;
 
 import io.github.cursodsousa.sbootexpsecurity.api.dto.EventoDTO;
 import io.github.cursodsousa.sbootexpsecurity.api.dto.EventoRequestDTO;
+import io.github.cursodsousa.sbootexpsecurity.api.dto.EventoResponseDTO;
 import io.github.cursodsousa.sbootexpsecurity.domain.entity.Evento;
 import io.github.cursodsousa.sbootexpsecurity.domain.service.EventoService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,9 +41,9 @@ public class EventoRestController {
     }
 
     @PostMapping
-    public ResponseEntity<Evento> criarEvento(@RequestBody EventoRequestDTO dto) {
-        Evento eventoCriado = eventoService.criarEventoComParticipantes(dto);
-        return ResponseEntity.ok(eventoCriado);
+    public ResponseEntity<EventoResponseDTO> criarEvento(@RequestBody EventoRequestDTO dto) {
+        Evento evento = eventoService.criarEventoComParticipantes(dto);
+        return ResponseEntity.ok(EventoResponseDTO.fromEvento(evento)); // Converta para DTO
     }
 
     @PatchMapping("/{id}")

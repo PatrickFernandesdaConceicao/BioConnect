@@ -42,8 +42,8 @@ public class EventoService {
         if (dto.participantes != null) {
             List<ParticipanteEvento> participanteEventos = dto.participantes.stream().map(p -> {
                 ParticipanteEvento participanteEvento = new ParticipanteEvento();
-                participanteEvento.setNome(p.nome);
-                participanteEvento.setEmail(p.email);
+                participanteEvento.setNome(p.getNome());
+                participanteEvento.setEmail(p.getEmail());
                 participanteEvento.setEvento(evento); // Associação bidirecional
                 return participanteEvento;
             }).collect(Collectors.toList());
