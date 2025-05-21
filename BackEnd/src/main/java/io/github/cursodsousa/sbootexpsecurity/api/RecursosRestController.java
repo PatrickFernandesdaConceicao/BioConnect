@@ -44,10 +44,9 @@ public class RecursosRestController {
 
     @PostMapping
     public ResponseEntity<?> criarRecursos(@Valid @RequestBody RecursosDTO recursosDTO) {
-        // Verificar se o evento existe
         Evento evento = eventoService.buscarIdEvento(recursosDTO.getEventoId());
         if (evento == null) {
-            return ResponseEntity.badRequest().body("Evento não encontrado");
+            return ResponseEntity.badRequest().body("Evento com ID " + recursosDTO.getEventoId() + " não encontrado");
         }
 
         Recursos recursos = recursosDTO.toRecursos(evento);
@@ -55,7 +54,7 @@ public class RecursosRestController {
         return ResponseEntity.status(HttpStatus.CREATED).body(RecursosDTO.fromRecursos(recursosCriado));
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     public ResponseEntity<?> atualizarRecursos(@PathVariable Long id, @Valid @RequestBody RecursosDTO recursosDTO) {
         // Verificar se o recurso existe
         if (recursosService.buscarIdRecursos(id) == null) {

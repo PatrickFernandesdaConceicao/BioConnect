@@ -31,6 +31,7 @@ public class RecursosDTO {
     @Min(value = 0, message = "O valor unitário não pode ser negativo")
     private Float valorAprovado;
 
+    @NotNull(message = "O ID do evento é obrigatório")
     private Long eventoId;
 
     @NotNull(message = "O valor unitário é obrigatório")

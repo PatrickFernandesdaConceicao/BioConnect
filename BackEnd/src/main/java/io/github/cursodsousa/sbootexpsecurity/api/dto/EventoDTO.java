@@ -16,6 +16,10 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @Data
 public class EventoDTO {
+
+    @NotNull(message = "O ID do evento é obrigatório")
+    private Long eventoId;
+
     @NotBlank(message = "O título é obrigatório")
     @Size(max = 100, message = "O título não pode ter mais de 100 caracteres")
     private String titulo;

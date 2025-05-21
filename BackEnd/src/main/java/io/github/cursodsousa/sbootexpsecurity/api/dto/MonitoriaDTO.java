@@ -17,6 +17,9 @@ import java.time.LocalDate;
 @Data
 public class MonitoriaDTO {
 
+    @NotNull(message = "O ID do evento é obrigatório")
+    private Long disciplinaId;
+
     @NotNull(message = "A quantidade de vagas é obrigatória")
     @Min(value = 1, message = "A quantidade deve ser maior que zero")
     private Integer vagas;
