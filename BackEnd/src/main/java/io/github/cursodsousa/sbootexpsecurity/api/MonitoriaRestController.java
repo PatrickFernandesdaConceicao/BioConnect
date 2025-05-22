@@ -43,7 +43,7 @@ public class MonitoriaRestController {
         return ResponseEntity.status(HttpStatus.CREATED).body(MonitoriaDTO.fromMonitoria(monitoriaCriada));
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     public ResponseEntity<MonitoriaDTO> atualizarMonitoria(@PathVariable Long id, @Valid @RequestBody MonitoriaDTO monitoriaDTO){
         Monitoria monitoria = monitoriaDTO.toMonitoria();
         monitoria.setId(id);

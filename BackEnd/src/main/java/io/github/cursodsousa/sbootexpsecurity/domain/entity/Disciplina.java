@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -14,7 +15,6 @@ import java.util.List;
 @Entity
 @Table(name = "disciplina")
 public class Disciplina {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -22,11 +22,18 @@ public class Disciplina {
     @NotBlank(message = "O nome da disciplina é obrigatório")
     private String nome;
 
-    @OneToMany(mappedBy = "disciplina")
-    private List<Monitoria> monitoria;
-
-    @ManyToOne
-    @JoinColumn(name = "curso_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "curso_id", nullable = false) // Não permite null
     private Curso curso;
 
+    @OneToMany(mappedBy = "disciplina")
+    private List<Monitoria> monitorias = new ArrayList<>();
+
+    // Métodos setter modificados para manter a consistência
+    public void setCurso(Curso curso) {
+        this.curso = curso;
+        if (curso != null && !curso.getDisciplinas().contains(this)) {
+            curso.getDisciplinas().add(this);
+        }
+    }
 }

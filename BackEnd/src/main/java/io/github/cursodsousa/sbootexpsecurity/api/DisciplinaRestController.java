@@ -45,7 +45,7 @@ public class DisciplinaRestController {
         return ResponseEntity.status(HttpStatus.CREATED).body(DisciplinaDTO.fromDisciplina(disciplinaCriada));
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     public ResponseEntity<DisciplinaDTO> atualizarDisciplina(@PathVariable Long id, @Valid @RequestBody DisciplinaDTO disciplinaDTO){
         Disciplina disciplina = disciplinaDTO.toDisciplina();
         disciplina.setId(id);

@@ -45,7 +45,7 @@ public class CursoRestController {
         return ResponseEntity.status(HttpStatus.CREATED).body(CursoDTO.fromCurso(cursoCriado));
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     public ResponseEntity<CursoDTO> atualizarCurso(@PathVariable Long id, @Valid @RequestBody CursoDTO cursoDTO){
         Curso curso = cursoDTO.toCurso();
         curso.setId(id);
