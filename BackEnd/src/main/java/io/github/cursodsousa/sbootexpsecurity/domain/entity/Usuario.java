@@ -3,6 +3,7 @@ package io.github.cursodsousa.sbootexpsecurity.domain.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -16,7 +17,11 @@ public class Usuario {
     private String login;
     private String senha;
     private String nome;
+    private String email;
 
-    @Transient //ignora o mapeamento do JPA(não cria coluna no banco de dados)
+    @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<UsuarioGrupo> grupos = new ArrayList<>();
+
+    @Transient
     private List<String> permissoes;
 }

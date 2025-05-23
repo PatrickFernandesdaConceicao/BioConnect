@@ -1,12 +1,13 @@
 package io.github.cursodsousa.sbootexpsecurity.domain.entity;
 
-
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "UsuarioGrupo")
 @Data
+@NoArgsConstructor
 public class UsuarioGrupo {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

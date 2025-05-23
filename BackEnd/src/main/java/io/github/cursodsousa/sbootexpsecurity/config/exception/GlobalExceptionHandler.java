@@ -1,5 +1,6 @@
-package io.github.cursodsousa.sbootexpsecurity.config;
+package io.github.cursodsousa.sbootexpsecurity.config.exception;
 
+import io.github.cursodsousa.sbootexpsecurity.config.ValidacaoException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;

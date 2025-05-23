@@ -29,22 +29,24 @@ public class SecurityConfig {
             SenhaMasterAuthenticationProvider senhaMasterAuthenticationProvider,
             CustomAuthenticationProvider customAuthenticationProvider,
             CustomFilter customFilter) throws Exception {
-        return http
+
+        http
                 .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(customizer -> {
-                    customizer.requestMatchers("/public").permitAll();
-                    customizer.anyRequest().authenticated();
-                })
-                .httpBasic(Customizer.withDefaults())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/public/**", "/public").permitAll()
+                        .anyRequest().authenticated()
+                )
                 .formLogin(Customizer.withDefaults())
+                .httpBasic(Customizer.withDefaults())
                 .authenticationProvider(senhaMasterAuthenticationProvider)
                 .authenticationProvider(customAuthenticationProvider)
-                .addFilterBefore(customFilter, UsernamePasswordAuthenticationFilter.class)
-                .build();
+                .addFilterBefore(customFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
     }
 
     @Bean
-    public UserDetailsService userDetailsService(){
+    public UserDetailsService userDetailsService() {
         UserDetails commonUser = User.builder()
                 .username("user")
                 .password(passwordEncoder().encode("123"))
@@ -61,12 +63,12 @@ public class SecurityConfig {
     }
 
     @Bean
-    public PasswordEncoder passwordEncoder(){
+    public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
     @Bean
-    public WebSecurityCustomizer webSecurityCustomizer(){
+    public WebSecurityCustomizer webSecurityCustomizer() {
         return web -> web.ignoring().requestMatchers(
                 "/v2/api-docs/**",
                 "/v3/api-docs/**",
@@ -75,11 +77,10 @@ public class SecurityConfig {
                 "/swagger-ui/**",
                 "/webjars/**"
         );
-    };
-
-    @Bean
-    public GrantedAuthorityDefaults grantedAuthorityDefaults(){
-        return new GrantedAuthorityDefaults("");
     }
 
+    @Bean
+    public GrantedAuthorityDefaults grantedAuthorityDefaults() {
+        return new GrantedAuthorityDefaults("");
+    }
 }
