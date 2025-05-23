@@ -20,8 +20,14 @@ public class MonitoriaService {
     public Monitoria buscarIdMonitoria(Long id){
         return monitoriaRepository.findById(id).orElse(null);}
 
-    public Monitoria criarMonitoria(Monitoria monitoria){
-        return monitoriaRepository.save(monitoria);}
+    public Monitoria criarMonitoria(Monitoria monitoria) {
+
+        if (monitoria.isBolsa() && monitoria.getValorBolsa() == null) {
+            throw new IllegalArgumentException("Valor da bolsa é obrigatório quando bolsa é true");
+        }
+
+        return monitoriaRepository.save(monitoria);
+    }
 
     public void deletarMonitoria(Long id){
         monitoriaRepository.deleteById(id);}

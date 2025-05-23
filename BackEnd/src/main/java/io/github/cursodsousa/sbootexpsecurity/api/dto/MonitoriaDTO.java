@@ -3,6 +3,7 @@ package io.github.cursodsousa.sbootexpsecurity.api.dto;
 
 
 import io.github.cursodsousa.sbootexpsecurity.domain.entity.Monitoria;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -49,6 +50,35 @@ public class MonitoriaDTO {
     @NotBlank(message = "Conteúdo é obrigatório")
     private String conteudoAv;
 
+    @NotBlank(message = "Conteúdo é obrigatório")
+    private String diasSemana;
+
+    @NotBlank(message = "Conteúdo é obrigatório")
+    private String horarioInicio;
+
+    @NotBlank(message = "Conteúdo é obrigatório")
+    private String horarioFim;
+
+    @NotBlank(message = "Conteúdo é obrigatório")
+    private String sala;
+
+    @AssertTrue(message = "Valor da bolsa é obrigatório quando bolsa é true")
+    public boolean isValorBolsaValid() {
+        return !bolsa || valorBolsa != null;
+    }
+    private boolean bolsa;
+
+    private Double valorBolsa;
+
+    @NotBlank(message = "Conteúdo é obrigatório")
+    private String requisitos;
+
+    @NotBlank(message = "Conteúdo é obrigatório")
+    private String atividades;
+
+    @NotBlank(message = "Conteúdo é obrigatório")
+    private String alunoPreSelecionado;
+
     public Monitoria toMonitoria(){
         Monitoria monitoria = new Monitoria();
         monitoria.setVagas(this.vagas);
@@ -60,6 +90,15 @@ public class MonitoriaDTO {
         monitoria.setDataInicioMoni(this.DataInicioMoni);
         monitoria.setDataInicioMoni(this.DataFimMoni);
         monitoria.setConteudoAv(this.conteudoAv);
+        monitoria.setDiasSemana(this.diasSemana);
+        monitoria.setHorarioInicio(this.horarioInicio);
+        monitoria.setHorarioFim(this.horarioFim);
+        monitoria.setSala(this.sala);
+        monitoria.setBolsa(this.bolsa);
+        monitoria.setValorBolsa(this.valorBolsa);
+        monitoria.setRequisitos(this.requisitos);
+        monitoria.setAtividades(this.atividades);
+        monitoria.setAlunoPreSelecionado(this.alunoPreSelecionado);
         return monitoria;
     }
 
@@ -74,6 +113,15 @@ public class MonitoriaDTO {
         dto.setDataInicioMoni(monitoria.getDataInicioMoni());
         dto.setDataFimMoni(monitoria.getDataFimMoni());
         dto.setConteudoAv(monitoria.getConteudoAv());
+        dto.setDiasSemana(monitoria.getDiasSemana());
+        dto.setHorarioInicio(monitoria.getHorarioInicio());
+        dto.setHorarioFim(monitoria.getHorarioFim());
+        dto.setSala(monitoria.getSala());
+        dto.setBolsa(monitoria.isBolsa());
+        dto.setValorBolsa(monitoria.getValorBolsa());
+        dto.setRequisitos(monitoria.getRequisitos());
+        dto.setAtividades(monitoria.getAtividades());
+        dto.setAlunoPreSelecionado(monitoria.getAlunoPreSelecionado());
         return dto;
     }
 }

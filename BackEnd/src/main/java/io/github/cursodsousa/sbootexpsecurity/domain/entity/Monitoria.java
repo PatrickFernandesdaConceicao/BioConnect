@@ -52,13 +52,40 @@ public class Monitoria {
     @NotBlank(message = "Conteúdo é obrigatório")
     private String conteudoAv;
 
-    //Uma disciplina tem varia monitorias
+    @NotBlank(message = "Conteúdo é obrigatório")
+    private String diasSemana;
+
+    @NotBlank(message = "Conteúdo é obrigatório")
+    private String horarioInicio;
+
+    @NotBlank(message = "Conteúdo é obrigatório")
+    private String horarioFim;
+
+    @NotBlank(message = "Conteúdo é obrigatório")
+    private String sala;
+
+    private boolean bolsa;
+
+    private Double valorBolsa;
+
+    @NotBlank(message = "Conteúdo é obrigatório")
+    private String requisitos;
+
+    @NotBlank(message = "Conteúdo é obrigatório")
+    private String atividades;
+
+    @NotBlank(message = "Conteúdo é obrigatório")
+    private String alunoPreSelecionado;
+
+    //Uma disciplina tem varias monitorias
     @ManyToOne
     @JoinColumn(name = "disciplina_id")
     private Disciplina disciplina;
 
-    //@ManyToOne
-    //@Column(name = "monitor_id")
-    //private Pessoa monitor;
+    //Um curso tem varias monitorias
+    @ManyToOne
+    @JoinColumn(name = "curso_id")
+    private Curso curso;
+    
 
 }

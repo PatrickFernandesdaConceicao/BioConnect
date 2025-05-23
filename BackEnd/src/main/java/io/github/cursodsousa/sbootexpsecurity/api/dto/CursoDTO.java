@@ -21,9 +21,7 @@ public class CursoDTO {
     @Size(max = 100, message = "O nome do curso deve ter no máximo 100 caracteres")
     private String nome;
 
-    private List<Long> disciplinasIds;
 
-   // private Long coordenadorId;
 
     public Curso toCurso(){
         Curso curso = new Curso();

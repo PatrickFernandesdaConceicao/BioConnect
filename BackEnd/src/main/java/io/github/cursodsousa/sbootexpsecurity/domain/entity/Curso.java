@@ -24,22 +24,14 @@ public class Curso {
     @Size(max = 100, message = "O nome do curso deve ter no máximo 100 caracteres")
     private String nome;
 
-    @OneToMany(mappedBy = "curso",
+ /*   @OneToMany(mappedBy = "curso",
             cascade = CascadeType.ALL,
             orphanRemoval = true)
     private List<Disciplina> disciplinas = new ArrayList<>();
-
+*/
     @OneToMany(mappedBy = "curso")
     private List<Evento> eventos = new ArrayList<>();
 
-    // Métodos auxiliares para gerenciar o relacionamento
-    public void addDisciplina(Disciplina disciplina) {
-        disciplinas.add(disciplina);
-        disciplina.setCurso(this);
-    }
-
-    public void removeDisciplina(Disciplina disciplina) {
-        disciplinas.remove(disciplina);
-        disciplina.setCurso(null);
-    }
+    @OneToMany(mappedBy = "curso")
+    private List<Monitoria> monitorias = new ArrayList<>();
 }

@@ -29,11 +29,4 @@ public class Disciplina {
     @OneToMany(mappedBy = "disciplina")
     private List<Monitoria> monitorias = new ArrayList<>();
 
-    // Métodos setter modificados para manter a consistência
-    public void setCurso(Curso curso) {
-        this.curso = curso;
-        if (curso != null && !curso.getDisciplinas().contains(this)) {
-            curso.getDisciplinas().add(this);
-        }
-    }
 }
