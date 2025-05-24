@@ -2,6 +2,7 @@ package io.github.cursodsousa.sbootexpsecurity.domain.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -22,8 +23,9 @@ public class Disciplina {
     @NotBlank(message = "O nome da disciplina é obrigatório")
     private String nome;
 
+    @NotNull(message = "O curso é obrigatório")
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "curso_id", nullable = false) // Não permite null
+    @JoinColumn(name = "curso_id", nullable = false)
     private Curso curso;
 
     @OneToMany(mappedBy = "disciplina")

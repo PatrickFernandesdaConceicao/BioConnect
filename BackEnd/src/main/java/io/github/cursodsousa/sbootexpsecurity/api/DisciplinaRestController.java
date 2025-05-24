@@ -31,18 +31,25 @@ public class DisciplinaRestController {
 
     @GetMapping("/{id}")
     public ResponseEntity<DisciplinaDTO> detalharDisciplina(@PathVariable Long id){
-        Disciplina disciplina = disciplinaService.buscarIdMonitoria(id);
+        Disciplina disciplina = disciplinaService.buscarIdDisciplina(id);
         if(disciplina == null){
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(DisciplinaDTO.fromDisciplina(disciplina));
     }
 
-    @PostMapping
-    public ResponseEntity<DisciplinaDTO> criarDisciplina(@Valid @RequestBody DisciplinaDTO disciplinaDTO){
-        Disciplina disciplina = disciplinaDTO.toDisciplina();
-        Disciplina disciplinaCriada = disciplinaService.criarDisciplina(disciplina);
-        return ResponseEntity.status(HttpStatus.CREATED).body(DisciplinaDTO.fromDisciplina(disciplinaCriada));
+    public ResponseEntity<?> criarDisciplina(@Valid @RequestBody DisciplinaDTO disciplinaDTO) {
+        try {
+            Disciplina disciplina = disciplinaDTO.toDisciplina();
+            Disciplina disciplinaCriada = disciplinaService.criarDisciplina(disciplina);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(DisciplinaDTO.fromDisciplina(disciplinaCriada));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body("Erro ao criar disciplina: " + e.getMessage());
+        }
     }
 
     @PatchMapping("/{id}")

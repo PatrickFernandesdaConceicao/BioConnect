@@ -2,7 +2,11 @@ package io.github.cursodsousa.sbootexpsecurity.api.dto;
 
 
 
+import io.github.cursodsousa.sbootexpsecurity.domain.entity.Curso;
+import io.github.cursodsousa.sbootexpsecurity.domain.entity.Disciplina;
 import io.github.cursodsousa.sbootexpsecurity.domain.entity.Monitoria;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -79,6 +83,12 @@ public class MonitoriaDTO {
     @NotBlank(message = "Conteúdo é obrigatório")
     private String alunoPreSelecionado;
 
+    @NotNull(message = "O ID do disciplina é obrigatório")
+    private Long disciplinaID;
+
+    @NotNull(message = "O ID do curso é obrigatório")
+    private Long cursoId;
+
     public Monitoria toMonitoria(){
         Monitoria monitoria = new Monitoria();
         monitoria.setVagas(this.vagas);
@@ -99,6 +109,15 @@ public class MonitoriaDTO {
         monitoria.setRequisitos(this.requisitos);
         monitoria.setAtividades(this.atividades);
         monitoria.setAlunoPreSelecionado(this.alunoPreSelecionado);
+
+        Curso curso = new Curso();
+        curso.setId(this.cursoId);
+        monitoria.setCurso(curso);
+
+        Disciplina disciplina = new Disciplina();
+        disciplina.setId(this.disciplinaId);
+        monitoria.setDisciplina(disciplina);
+
         return monitoria;
     }
 
@@ -122,6 +141,7 @@ public class MonitoriaDTO {
         dto.setRequisitos(monitoria.getRequisitos());
         dto.setAtividades(monitoria.getAtividades());
         dto.setAlunoPreSelecionado(monitoria.getAlunoPreSelecionado());
+
         return dto;
     }
 }

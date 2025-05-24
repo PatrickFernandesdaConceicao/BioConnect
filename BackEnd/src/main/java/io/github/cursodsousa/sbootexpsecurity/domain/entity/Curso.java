@@ -24,11 +24,6 @@ public class Curso {
     @Size(max = 100, message = "O nome do curso deve ter no máximo 100 caracteres")
     private String nome;
 
- /*   @OneToMany(mappedBy = "curso",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true)
-    private List<Disciplina> disciplinas = new ArrayList<>();
-*/
     @OneToMany(mappedBy = "curso")
     private List<Evento> eventos = new ArrayList<>();
 
