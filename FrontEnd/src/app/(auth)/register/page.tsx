@@ -6,6 +6,8 @@ import Link from "next/link";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
+import { registerUser } from "../../services/api";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -29,28 +31,28 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-// Esquema de validação do formulário sem o campo role
+// Atualizar o schema para corresponder ao DTO do backend
 const registerSchema = z
   .object({
-    name: z.string().min(3, {
+    nome: z.string().min(3, {
       message: "O nome deve ter pelo menos 3 caracteres",
     }),
     email: z.string().email({
       message: "Email inválido",
     }),
-    password: z.string().min(8, {
+    senha: z.string().min(8, {
       message: "A senha deve ter pelo menos 8 caracteres",
     }),
-    confirmPassword: z.string().min(8, {
+    confirmacaoSenha: z.string().min(8, {
       message: "A confirmação de senha deve ter pelo menos 8 caracteres",
     }),
-    acceptTerms: z.boolean().refine((val) => val === true, {
+    aceiteTermos: z.boolean().refine((val) => val === true, {
       message: "Você deve aceitar os termos e condições",
     }),
   })
-  .refine((data) => data.password === data.confirmPassword, {
+  .refine((data) => data.senha === data.confirmacaoSenha, {
     message: "As senhas não coincidem",
-    path: ["confirmPassword"],
+    path: ["confirmacaoSenha"],
   });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -59,40 +61,46 @@ export default function RegisterPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const defaultValues: Partial<RegisterFormValues> = {
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    acceptTerms: false,
-  };
-
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues,
+    defaultValues: {
+      nome: "",
+      email: "",
+      senha: "",
+      confirmacaoSenha: "",
+      aceiteTermos: false,
+    },
   });
 
   async function onSubmit(values: RegisterFormValues) {
     setIsSubmitting(true);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      console.log("Dados do registro:", values);
-
-      Sonner({
-        title: "Registro realizado com sucesso!",
-        description:
-          "Sua conta foi criada. Você será redirecionado para o login.",
+      await registerUser(values);
+      
+      toast.success("Registro realizado com sucesso!", {
+        description: "Sua conta foi criada. Você será redirecionado para o login.",
       });
 
-      router.push("/login");
-    } catch (error) {
+      setTimeout(() => {
+        router.push("/login");
+      }, 2000);
+    } catch (error: any) {
       console.error("Erro ao registrar:", error);
-      Sonner({
-        title: "Erro ao criar conta",
-        description: "Verifique os dados e tente novamente.",
-        variant: "destructive",
-      });
+      
+      if (error.errors) {
+        // Tratar erros de validação do backend
+        Object.keys(error.errors).forEach((key) => {
+          form.setError(key as keyof RegisterFormValues, {
+            type: "manual",
+            message: error.errors[key],
+          });
+        });
+      } else {
+        toast.error("Erro ao criar conta", {
+          description: error.message || "Verifique os dados e tente novamente.",
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -137,7 +145,7 @@ export default function RegisterPage() {
                 >
                   <FormField
                     control={form.control}
-                    name="name"
+                    name="nome"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Nome completo</FormLabel>
@@ -170,7 +178,7 @@ export default function RegisterPage() {
                   <div className="grid md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
-                      name="password"
+                      name="senha"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Senha</FormLabel>
@@ -188,7 +196,7 @@ export default function RegisterPage() {
 
                     <FormField
                       control={form.control}
-                      name="confirmPassword"
+                      name="confirmacaoSenha"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Confirmar senha</FormLabel>
@@ -207,7 +215,7 @@ export default function RegisterPage() {
 
                   <FormField
                     control={form.control}
-                    name="acceptTerms"
+                    name="aceiteTermos"
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                         <FormControl>

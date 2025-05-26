@@ -10,6 +10,7 @@ import io.github.cursodsousa.sbootexpsecurity.domain.service.EventoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -41,6 +42,7 @@ public class EventoRestController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<EventoResponseDTO> criarEvento(@RequestBody EventoRequestDTO dto) {
         Evento evento = eventoService.criarEventoComParticipantes(dto);
         return ResponseEntity.ok(EventoResponseDTO.fromEvento(evento)); // Converta para DTO
