@@ -20,13 +20,6 @@ public class Curso {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank(message = "O nome do curso é obrigatório")
-    @Size(max = 100, message = "O nome do curso deve ter no máximo 100 caracteres")
+    @Column(nullable = false, unique = true)
     private String nome;
-
-    @OneToMany(mappedBy = "curso")
-    private List<Evento> eventos = new ArrayList<>();
-
-    @OneToMany(mappedBy = "curso")
-    private List<Monitoria> monitorias = new ArrayList<>();
 }

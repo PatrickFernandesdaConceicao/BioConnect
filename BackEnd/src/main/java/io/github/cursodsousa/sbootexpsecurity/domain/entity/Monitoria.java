@@ -10,7 +10,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.cglib.core.Local;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.Set;
 
 @Data
 @AllArgsConstructor
@@ -23,69 +26,50 @@ public class Monitoria {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotNull(message = "A quantidade de vagas é obrigatória")
-    @Min(value = 1, message = "A quantidade deve ser maior que zero")
-    private Integer vagas;
-
-    @NotNull(message = "A carga horária é obrigatória")
-    @Min(value = 0, message = "O valor unitário não pode ser negativo")
-    private Integer cargaHor;
-
-    @NotNull(message = "A data de início é obrigatória")
-    private LocalDate inicioInscricoes;
-
-    @NotNull(message = "A data final é obrigatória")
-    private LocalDate fimInscricoes;
-
-    @NotBlank(message = "A descrição da forma de seleção é obrigatório")
-    private String formaSelecao;
-
-    @NotNull(message = "A data de divulgação é obrigatória")
-    private LocalDate dataDivulgacao;
-
-    @NotNull(message = "A data de início é obrigatória")
-    private LocalDate DataInicioMoni;
-
-    @NotNull(message = "A data final é obrigatória")
-    private LocalDate DataFimMoni;
-
-    @NotBlank(message = "Conteúdo é obrigatório")
-    private String conteudoAv;
-
-    @NotBlank(message = "Conteúdo é obrigatório")
-    private String diasSemana;
-
-    @NotBlank(message = "Conteúdo é obrigatório")
-    private String horarioInicio;
-
-    @NotBlank(message = "Conteúdo é obrigatório")
-    private String horarioFim;
-
-    @NotBlank(message = "Conteúdo é obrigatório")
-    private String sala;
-
-    private boolean bolsa;
-
-    private Double valorBolsa;
-
-    @NotBlank(message = "Conteúdo é obrigatório")
-    private String requisitos;
-
-    @NotBlank(message = "Conteúdo é obrigatório")
-    private String atividades;
-
-    @NotBlank(message = "Conteúdo é obrigatório")
-    private String alunoPreSelecionado;
-
-    //Uma disciplina tem varias monitorias
     @ManyToOne
-    @JoinColumn(name = "disciplina_id")
+    @JoinColumn(nullable = false)
     private Disciplina disciplina;
 
-    //Um curso tem varias monitorias
     @ManyToOne
-    @JoinColumn(name = "curso_id")
+    @JoinColumn(nullable = false)
     private Curso curso;
+
+    @Column(nullable = false)
+    private String semestre;
+
+    @Column(nullable = false)
+    private Integer cargaHoraria;
+
+    @Column(nullable = false)
+    private LocalDate dataInicio;
+
+    @Column(nullable = false)
+    private LocalDate dataTermino;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "monitoria_dias_semana", joinColumns = @JoinColumn(name = "monitoria_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "dia")
+    private Set<DiaSemana> diasSemana;
+
+    @Column(nullable = false)
+    private LocalTime horarioInicio;
+
+    @Column(nullable = false)
+    private LocalTime horarioTermino;
+
+    private String sala;
+    private boolean bolsa;
+    private BigDecimal valorBolsa;
+    private String requisitos;
+    private String atividades;
+    private String alunoPreSelecionado;
+
+    @Column(nullable = false)
+    private boolean termosAceitos;
+
+    @Enumerated(EnumType.STRING)
+    private StatusMonitoria status = StatusMonitoria.PENDENTE;
     
 
 }

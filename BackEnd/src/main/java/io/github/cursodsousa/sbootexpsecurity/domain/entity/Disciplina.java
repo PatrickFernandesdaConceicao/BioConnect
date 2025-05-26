@@ -20,15 +20,7 @@ public class Disciplina {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank(message = "O nome da disciplina é obrigatório")
+    @Column(nullable = false, unique = true)
     private String nome;
-
-    @NotNull(message = "O curso é obrigatório")
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "curso_id", nullable = false)
-    private Curso curso;
-
-    @OneToMany(mappedBy = "disciplina")
-    private List<Monitoria> monitorias = new ArrayList<>();
 
 }
