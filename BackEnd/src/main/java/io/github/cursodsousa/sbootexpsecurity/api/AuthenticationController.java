@@ -3,6 +3,7 @@ package io.github.cursodsousa.sbootexpsecurity.api;
 import io.github.cursodsousa.sbootexpsecurity.api.dto.AuthenticationDTO;
 import io.github.cursodsousa.sbootexpsecurity.api.dto.LoginResponseDTO;
 import io.github.cursodsousa.sbootexpsecurity.api.dto.RegisterDTO;
+import io.github.cursodsousa.sbootexpsecurity.domain.entity.UserRole;
 import io.github.cursodsousa.sbootexpsecurity.domain.entity.Usuario;
 import io.github.cursodsousa.sbootexpsecurity.domain.repository.UsuarioRepository;
 import io.github.cursodsousa.sbootexpsecurity.domain.security.TokenService;
@@ -45,7 +46,9 @@ public class AuthenticationController {
         if(this.repository.findByLogin(data.login()) != null) return ResponseEntity.badRequest().build();
 
         String encryptedPassword = new BCryptPasswordEncoder().encode(data.senha());
-        Usuario newUser = new Usuario(data.login(), encryptedPassword,data.nome(),data.email(), data.role());
+        var role = (data.role() == null) ? UserRole.USER : data.role();
+
+        Usuario newUser = new Usuario(data.login(), encryptedPassword,data.nome(),data.email(), role);
 
         this.repository.save(newUser);
 
