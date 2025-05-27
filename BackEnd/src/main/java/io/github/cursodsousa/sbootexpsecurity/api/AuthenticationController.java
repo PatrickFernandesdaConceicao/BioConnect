@@ -6,11 +6,14 @@ import io.github.cursodsousa.sbootexpsecurity.api.dto.RegisterDTO;
 import io.github.cursodsousa.sbootexpsecurity.domain.entity.Usuario;
 import io.github.cursodsousa.sbootexpsecurity.domain.repository.UsuarioRepository;
 import io.github.cursodsousa.sbootexpsecurity.domain.security.TokenService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -46,6 +49,12 @@ public class AuthenticationController {
 
         this.repository.save(newUser);
 
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(HttpServletRequest request, HttpServletResponse response) {
+        SecurityContextHolder.clearContext();
         return ResponseEntity.ok().build();
     }
 }
