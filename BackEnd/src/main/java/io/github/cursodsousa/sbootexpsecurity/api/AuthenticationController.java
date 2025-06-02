@@ -3,14 +3,20 @@ package io.github.cursodsousa.sbootexpsecurity.api;
 import io.github.cursodsousa.sbootexpsecurity.api.dto.AuthenticationDTO;
 import io.github.cursodsousa.sbootexpsecurity.api.dto.LoginResponseDTO;
 import io.github.cursodsousa.sbootexpsecurity.api.dto.RegisterDTO;
+import io.github.cursodsousa.sbootexpsecurity.domain.entity.UserRole;
 import io.github.cursodsousa.sbootexpsecurity.domain.entity.Usuario;
 import io.github.cursodsousa.sbootexpsecurity.domain.repository.UsuarioRepository;
 import io.github.cursodsousa.sbootexpsecurity.domain.security.TokenService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,12 +35,17 @@ public class AuthenticationController {
 
     @PostMapping("/login")
     public ResponseEntity login(@RequestBody @Valid AuthenticationDTO data){
-        var usernamePassword = new UsernamePasswordAuthenticationToken(data.login(), data.senha());
-        var auth = this.authenticationManager.authenticate(usernamePassword);
+        try {
+            var usernamePassword = new UsernamePasswordAuthenticationToken(data.login(), data.senha());
+            var auth = this.authenticationManager.authenticate(usernamePassword);
 
-        var token = tokenService.generateToken((Usuario) auth.getPrincipal());
+            var token = tokenService.generateToken((Usuario) auth.getPrincipal());
 
-        return ResponseEntity.ok(new LoginResponseDTO(token));
+            return ResponseEntity.ok(new LoginResponseDTO(token));
+
+        } catch (BadCredentialsException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Credenciais inválidas.");
+        }
     }
 
     @PostMapping("/register")
@@ -42,10 +53,18 @@ public class AuthenticationController {
         if(this.repository.findByLogin(data.login()) != null) return ResponseEntity.badRequest().build();
 
         String encryptedPassword = new BCryptPasswordEncoder().encode(data.senha());
-        Usuario newUser = new Usuario(data.login(), encryptedPassword,data.nome(),data.email(), data.role());
+        var role = (data.role() == null) ? UserRole.USER : data.role();
+
+        Usuario newUser = new Usuario(data.login(), encryptedPassword,data.nome(),data.email(), role);
 
         this.repository.save(newUser);
 
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(HttpServletRequest request, HttpServletResponse response) {
+        SecurityContextHolder.clearContext();
         return ResponseEntity.ok().build();
     }
 }
