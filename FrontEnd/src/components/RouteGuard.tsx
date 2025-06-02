@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { isAuthenticated, hasPermission, getUser } from "@/lib/auth";
+import {
+  isAuthenticated,
+  hasPermission,
+  getUser,
+  isTokenExpired,
+} from "@/lib/auth";
 import type { User } from "@/lib/auth";
 import { AccessDeniedPage } from "./AccessDeniedPage";
 
@@ -26,51 +31,81 @@ export function RouteGuard({
 
   useEffect(() => {
     const checkAccess = () => {
-      // Verifica se está autenticado
-      if (!isAuthenticated()) {
-        const loginUrl = `/auth/login?callbackUrl=${encodeURIComponent(
-          pathname
-        )}`;
-        router.push(loginUrl);
-        return;
-      }
+      try {
+        // Verificar se está autenticado
+        if (!isAuthenticated() || isTokenExpired()) {
+          console.log("[RouteGuard] User not authenticated or token expired");
 
-      // Se tem roles específicas, verifica permissões
-      if (requiredRoles && requiredRoles.length > 0) {
-        const user = getUser();
-        if (!user) {
-          router.push("/auth/login");
-          return;
-        }
-
-        const hasRequiredPermission = requiredRoles.some((role) =>
-          hasPermission(role)
-        );
-
-        if (!hasRequiredPermission) {
-          if (redirectTo) {
-            router.push(redirectTo);
-          } else {
-            setHasAccess(false);
-            setIsLoading(false);
+          // Para dashboard, vai direto para login
+          if (pathname === "/dashboard") {
+            router.push("/login");
+            return;
           }
+
+          // Para outras rotas, preserva callback apenas se for uma rota específica
+          const shouldPreserveCallback =
+            pathname.startsWith("/projetos/") ||
+            pathname.startsWith("/eventos/") ||
+            pathname.startsWith("/monitorias/");
+
+          const loginUrl = shouldPreserveCallback
+            ? `/login?callbackUrl=${encodeURIComponent(pathname)}`
+            : "/login";
+
+          router.push(loginUrl);
           return;
         }
-      }
 
-      setHasAccess(true);
-      setIsLoading(false);
+        // Se tem roles específicas, verifica permissões
+        if (requiredRoles && requiredRoles.length > 0) {
+          const user = getUser();
+          if (!user) {
+            console.log("[RouteGuard] No user data found");
+            router.push("/login");
+            return;
+          }
+
+          const hasRequiredPermission = requiredRoles.some((role) =>
+            hasPermission(role)
+          );
+
+          if (!hasRequiredPermission) {
+            console.log("[RouteGuard] User lacks required permissions", {
+              userRole: user.tipo,
+              requiredRoles,
+            });
+
+            if (redirectTo) {
+              router.push(redirectTo);
+            } else {
+              setHasAccess(false);
+              setIsLoading(false);
+            }
+            return;
+          }
+        }
+
+        console.log("[RouteGuard] Access granted");
+        setHasAccess(true);
+        setIsLoading(false);
+      } catch (error) {
+        console.error("[RouteGuard] Error checking access:", error);
+        router.push("/login");
+      }
     };
 
-    checkAccess();
+    // Pequeno delay para evitar flash de conteúdo
+    const timer = setTimeout(checkAccess, 100);
+
+    return () => clearTimeout(timer);
   }, [pathname, requiredRoles, redirectTo, router]);
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-sm text-gray-600">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-sm text-gray-600">
             Verificando permissões...
           </p>
         </div>

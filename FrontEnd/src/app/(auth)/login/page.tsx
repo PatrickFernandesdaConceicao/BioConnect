@@ -1,8 +1,7 @@
-// app/(auth)/login/page.tsx
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -29,7 +28,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-// Esquema de validação do formulário
 const loginSchema = z.object({
   login: z.string().min(1, {
     message: "Login é obrigatório",
@@ -42,14 +40,16 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-// Interface para resposta da API
 interface LoginResponse {
   token?: string;
   user?: {
     id: string;
     nome: string;
     email: string;
+    login: string;
     tipo: string;
+    role?: string;
+    ativo?: boolean;
   };
   message?: string;
   error?: string;
@@ -57,22 +57,67 @@ interface LoginResponse {
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-  // Valores padrão para o formulário
-  const defaultValues: Partial<LoginFormValues> = {
-    login: "",
-    senha: "",
-    rememberMe: false,
-  };
-
-  // Configuração do formulário
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues,
+    defaultValues: {
+      login: "",
+      senha: "",
+      rememberMe: false,
+    },
   });
 
-  // Função para fazer a chamada à API de login
+  useEffect(() => {
+    const checkExistingAuth = () => {
+      const token =
+        localStorage.getItem("bioconnect_token") ||
+        sessionStorage.getItem("bioconnect_token");
+      const user =
+        localStorage.getItem("bioconnect_user") ||
+        sessionStorage.getItem("bioconnect_user");
+
+      if (token && user) {
+        console.log("👤 Usuário já está logado, redirecionando...");
+
+        const callbackUrl = searchParams.get("callbackUrl");
+        const redirectPath =
+          callbackUrl && callbackUrl.startsWith("/")
+            ? callbackUrl
+            : "/dashboard";
+
+        router.push(redirectPath);
+        return;
+      }
+
+      setIsCheckingAuth(false);
+    };
+
+    const timer = setTimeout(checkExistingAuth, 100);
+    return () => clearTimeout(timer);
+  }, [router, searchParams]);
+
+  const saveAuthData = (token: string, userData: any, rememberMe: boolean) => {
+    const storage = rememberMe ? localStorage : sessionStorage;
+
+    storage.setItem("bioconnect_token", token);
+    storage.setItem("bioconnect_user", JSON.stringify(userData));
+    document.cookie = `bioconnect_token=${token}; path=/; ${
+      rememberMe ? "expires=Fri, 31 Dec 9999 23:59:59 GMT" : ""
+    }`;
+  };
+
+  const mapRoleToTipo = (role: string) => {
+    const roleMap: Record<string, "USER" | "ADMIN"> = {
+      USER: "USER",
+      ADMIN: "ADMIN",
+      ADMINISTRADOR: "ADMIN",
+    };
+    return roleMap[role] || "USER";
+  };
+
   async function authenticateUser(credentials: {
     login: string;
     senha: string;
@@ -97,20 +142,35 @@ export default function LoginPage() {
     return await response.json();
   }
 
-  // Função para salvar os dados do usuário
-  function saveUserSession(data: LoginResponse, rememberMe: boolean) {
-    const storage = rememberMe ? localStorage : sessionStorage;
+  const fetchUserData = async (token: string) => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const response = await fetch(`${apiUrl}/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
-    if (data.token) {
-      storage.setItem("bioconnect_token", data.token);
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (error) {
+      console.log("Não foi possível buscar dados do usuário:", error);
     }
+    return null;
+  };
 
-    if (data.user) {
-      storage.setItem("bioconnect_user", JSON.stringify(data.user));
+  const decodeToken = (token: string) => {
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      return payload;
+    } catch (error) {
+      console.error("Erro ao decodificar token:", error);
+      return null;
     }
-  }
+  };
 
-  // Função para lidar com o envio do formulário
   async function onSubmit(values: LoginFormValues) {
     setIsSubmitting(true);
 
@@ -122,25 +182,60 @@ export default function LoginPage() {
 
       const response = await authenticateUser(credentials);
 
-      // Salvar dados da sessão
-      saveUserSession(response, values.rememberMe);
+      if (!response.token) {
+        throw new Error("Token não encontrado na resposta do servidor");
+      }
 
-      // Exibir mensagem de sucesso
+      let userData = null;
+
+      if (response.user) {
+        userData = {
+          id: response.user.id,
+          nome: response.user.nome,
+          email: response.user.email,
+          login: response.user.login,
+          tipo: mapRoleToTipo(
+            response.user.tipo || response.user.role || "USER"
+          ),
+          ativo: response.user.ativo ?? true,
+        };
+      } else {
+        const userFromAPI = await fetchUserData(response.token);
+
+        if (userFromAPI) {
+          userData = {
+            id: userFromAPI.id,
+            nome: userFromAPI.nome,
+            email: userFromAPI.email,
+            login: userFromAPI.login,
+            tipo: mapRoleToTipo(userFromAPI.tipo || userFromAPI.role || "USER"),
+            ativo: userFromAPI.ativo ?? true,
+          };
+        } else {
+          const tokenPayload = decodeToken(response.token);
+          userData = {
+            id: tokenPayload?.sub || "unknown",
+            nome: values.login,
+            email: `${values.login}@biopark.edu.br`,
+            login: values.login,
+            tipo: mapRoleToTipo(tokenPayload?.role || "USER"),
+            ativo: true,
+          };
+        }
+      }
+
+      saveAuthData(response.token, userData, values.rememberMe);
+
       toast.success("Login realizado com sucesso!", {
-        description: "Você será redirecionado para o dashboard.",
+        description: "Você será redirecionado em instantes.",
       });
-
-      // Pequeno delay para mostrar a mensagem antes do redirecionamento
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 1000);
+      router.push("/dashboard");
     } catch (error) {
       console.error("Erro no login:", error);
 
       let errorMessage = "Verifique suas credenciais e tente novamente.";
 
       if (error instanceof Error) {
-        // Personalizar mensagens de erro baseadas na resposta da API
         if (error.message.includes("401")) {
           errorMessage = "Credenciais inválidas. Verifique seu login e senha.";
         } else if (error.message.includes("403")) {
@@ -167,6 +262,17 @@ export default function LoginPage() {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  if (isCheckingAuth) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-sm text-gray-600">Verificando login...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -232,12 +338,12 @@ export default function LoginPage() {
                       <FormItem>
                         <div className="flex items-center justify-between">
                           <FormLabel>Senha</FormLabel>
-                          {/* <Link
+                          <Link
                             href="/recover-password"
                             className="text-sm text-blue-600 hover:text-blue-800"
                           >
                             Esqueceu a senha?
-                          </Link> */}
+                          </Link>
                         </div>
                         <FormControl>
                           <Input
@@ -248,6 +354,24 @@ export default function LoginPage() {
                           />
                         </FormControl>
                         <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="rememberMe"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Lembrar de mim</FormLabel>
+                        </div>
                       </FormItem>
                     )}
                   />

@@ -25,7 +25,6 @@ export function ProtectedPage({
 // COMPONENTE DE LOADING PARA AUTENTICAÇÃO
 // =============================================================================
 
-// components/AuthLoadingSpinner.tsx
 export function AuthLoadingSpinner() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">

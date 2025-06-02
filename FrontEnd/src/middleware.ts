@@ -1,57 +1,39 @@
-// middleware.ts (na raiz do projeto)
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// =============================================================================
-// CONFIGURAÇÕES DO MIDDLEWARE
-// =============================================================================
-
-// Rotas públicas que não precisam de autenticação
 const PUBLIC_ROUTES = [
   "/",
-  "/auth/login",
-  "/auth/register",
-  "/auth/recover-password",
+  "/login",
+  "/register",
+  "/recover-password",
   "/terms-of-service",
   "/privacy-policy",
   "/about",
   "/contact",
 ];
 
-// Rotas que só podem ser acessadas por usuários NÃO autenticados
-const AUTH_ROUTES = ["/auth/login", "/auth/register", "/auth/recover-password"];
+const AUTH_ROUTES = ["/login", "/register", "/recover-password"];
 
-// Rotas protegidas que precisam de autenticação
 const PROTECTED_ROUTES = [
   "/dashboard",
   "/projetos",
   "/monitorias",
   "/eventos",
+  "/relatorios",
   "/profile",
   "/settings",
+  "/usuarios",
+  "/configuracoes",
 ];
 
-// Rotas que precisam de permissões específicas
 const ROLE_BASED_ROUTES = {
-  "/admin": ["ADMINISTRADOR"],
-  "/coordenacao": ["USER", "ADMINISTRADOR"],
-  "/professores": ["USER", "ADMINISTRADOR"],
-  "/projetos/criar": ["USER", "ADMINISTRADOR"],
-  "/monitorias/criar": ["USER", "ADMINISTRADOR"],
-  "/eventos/criar": ["USER", "ADMINISTRADOR"],
-  "/relatorios": ["USER", "ADMINISTRADOR"],
-  "/usuarios": ["ADMINISTRADOR"],
+  "/usuarios": ["ADMIN"],
+  "/configuracoes": ["ADMIN"],
+  "/relatorios": ["USER", "ADMIN"],
 } as const;
 
-type UserRole = "USER" | "ADMINISTRADOR";
+type UserRole = "USER" | "ADMIN";
 
-// =============================================================================
-// FUNÇÕES AUXILIARES
-// =============================================================================
-
-/**
- * Verifica se a rota é pública
- */
 function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTES.some((route) => {
     if (route === "/") {
@@ -61,23 +43,14 @@ function isPublicRoute(pathname: string): boolean {
   });
 }
 
-/**
- * Verifica se a rota é de autenticação
- */
 function isAuthRoute(pathname: string): boolean {
   return AUTH_ROUTES.some((route) => pathname.startsWith(route));
 }
 
-/**
- * Verifica se a rota é protegida
- */
 function isProtectedRoute(pathname: string): boolean {
   return PROTECTED_ROUTES.some((route) => pathname.startsWith(route));
 }
 
-/**
- * Verifica se a rota precisa de permissões específicas
- */
 function requiresSpecificRole(pathname: string): string[] | null {
   for (const [route, roles] of Object.entries(ROLE_BASED_ROUTES)) {
     if (pathname.startsWith(route)) {
@@ -87,76 +60,82 @@ function requiresSpecificRole(pathname: string): string[] | null {
   return null;
 }
 
-/**
- * Verifica se o token JWT é válido
- */
 function isValidToken(token: string): boolean {
   try {
-    // Decodifica o JWT para verificar se não está expirado
     const payload = JSON.parse(atob(token.split(".")[1]));
     const currentTime = Math.floor(Date.now() / 1000);
 
-    // Verifica se o token não expirou
-    return payload.exp && payload.exp > currentTime;
-  } catch {
+    const isValid = payload.exp && payload.exp > currentTime;
+
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[Middleware] Token validation:`, {
+        exp: payload.exp,
+        now: currentTime,
+        isValid,
+        timeLeft: payload.exp - currentTime + " segundos",
+      });
+    }
+
+    return isValid;
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[Middleware] Token validation error:`, error);
+    }
     return false;
   }
 }
 
-/**
- * Extrai informações do usuário do token
- */
-function getUserFromToken(token: string): { role: UserRole } | null {
+function getUserFromToken(
+  token: string
+): { role: UserRole; tipo: UserRole } | null {
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
+    const role = payload.role || payload.tipo || "USER";
     return {
-      role: payload.role || "USER",
+      role: role,
+      tipo: role,
     };
   } catch {
     return null;
   }
 }
 
-/**
- * Verifica se o usuário tem permissão para acessar a rota
- */
 function hasPermission(userRole: UserRole, requiredRoles: string[]): boolean {
   return requiredRoles.includes(userRole);
 }
 
-/**
- * Obtém o token de autenticação dos cookies
- */
 function getAuthToken(request: NextRequest): string | null {
-  // Tenta obter o token do cookie
   const tokenFromCookie = request.cookies.get("bioconnect_token")?.value;
 
   if (tokenFromCookie) {
     return tokenFromCookie;
   }
 
-  // Fallback: tenta obter do header Authorization
   const authHeader = request.headers.get("authorization");
   if (authHeader && authHeader.startsWith("Bearer ")) {
     return authHeader.substring(7);
   }
 
+  const customHeader = request.headers.get("x-auth-token");
+  if (customHeader) {
+    return customHeader;
+  }
+
   return null;
 }
 
-/**
- * Cria resposta de redirecionamento preservando a URL de destino
- */
 function createRedirectResponse(
   request: NextRequest,
-  destination: string
+  destination: string,
+  preserveCallback: boolean = false
 ): NextResponse {
   const redirectUrl = new URL(destination, request.url);
 
-  // Se estiver tentando acessar uma rota protegida, salva a URL para redirecionamento após login
   if (
+    preserveCallback &&
     isProtectedRoute(request.nextUrl.pathname) &&
-    destination.includes("/auth/login")
+    destination.includes("/login") &&
+    request.nextUrl.pathname !== "/dashboard" // Não preservar para dashboard
   ) {
     redirectUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);
   }
@@ -164,14 +143,9 @@ function createRedirectResponse(
   return NextResponse.redirect(redirectUrl);
 }
 
-// =============================================================================
-// MIDDLEWARE PRINCIPAL
-// =============================================================================
-
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Ignora arquivos estáticos e APIs internas do Next.js
   if (
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/api/") ||
@@ -181,56 +155,78 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Obtém o token de autenticação
   const token = getAuthToken(request);
   const isAuthenticated = token ? isValidToken(token) : false;
 
-  // Se o token existe mas é inválido, limpa os cookies
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[Middleware] Authentication check:`, {
+      pathname,
+      hasToken: !!token,
+      tokenPreview: token ? token.substring(0, 20) + "..." : null,
+      isAuthenticated,
+    });
+  }
+
   if (token && !isAuthenticated) {
     const response = NextResponse.next();
     response.cookies.delete("bioconnect_token");
     response.cookies.delete("bioconnect_user");
+
+    if (isProtectedRoute(pathname)) {
+      return createRedirectResponse(request, "/login", false);
+    }
+
     return response;
   }
 
-  // =============================================================================
-  // LÓGICA DE ROTEAMENTO
-  // =============================================================================
-
-  // 1. ROTAS PÚBLICAS - sempre acessíveis
   if (isPublicRoute(pathname)) {
     return NextResponse.next();
   }
 
-  // 2. ROTAS DE AUTENTICAÇÃO - só para usuários não logados
   if (isAuthRoute(pathname)) {
     if (isAuthenticated) {
-      // Usuário já está logado, redireciona para dashboard
       const callbackUrl = request.nextUrl.searchParams.get("callbackUrl");
-      const redirectTo =
-        callbackUrl && callbackUrl.startsWith("/") ? callbackUrl : "/dashboard";
-      return createRedirectResponse(request, redirectTo);
+
+      if (
+        callbackUrl &&
+        callbackUrl.startsWith("/") &&
+        callbackUrl !== "/login"
+      ) {
+        console.log(
+          `[Middleware] Redirecionando usuário logado para callback: ${callbackUrl}`
+        );
+        return createRedirectResponse(request, callbackUrl, false);
+      }
+
+      console.log(`[Middleware] Redirecionando usuário logado para dashboard`);
+      return createRedirectResponse(request, "/dashboard", false);
     }
     return NextResponse.next();
   }
 
-  // 3. ROTAS PROTEGIDAS - precisa estar logado
   if (isProtectedRoute(pathname) || requiresSpecificRole(pathname)) {
     if (!isAuthenticated) {
-      // Usuário não está logado, redireciona para login
-      return createRedirectResponse(request, "/auth/login");
+      if (pathname === "/dashboard") {
+        return createRedirectResponse(request, "/login", false);
+      }
+
+      const shouldPreserveCallback =
+        pathname.startsWith("/projetos/") ||
+        pathname.startsWith("/eventos/") ||
+        pathname.startsWith("/monitorias/");
+
+      return createRedirectResponse(request, "/login", shouldPreserveCallback);
     }
 
-    // Usuário está logado, verifica permissões específicas
     const requiredRoles = requiresSpecificRole(pathname);
     if (requiredRoles) {
       const userInfo = getUserFromToken(token!);
 
       if (!userInfo || !hasPermission(userInfo.role, requiredRoles)) {
-        // Usuário não tem permissão, redireciona para página de acesso negado
         return createRedirectResponse(
           request,
-          "/dashboard?error=access_denied"
+          "/dashboard?error=access_denied",
+          false
         );
       }
     }
@@ -238,23 +234,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 4. ROTA RAIZ - redireciona baseado no status de autenticação
   if (pathname === "/") {
     if (isAuthenticated) {
-      return createRedirectResponse(request, "/dashboard");
+      return createRedirectResponse(request, "/dashboard", false);
     }
-    // Usuário não autenticado continua na homepage
     return NextResponse.next();
   }
 
-  // 5. ROTAS NÃO DEFINIDAS - comportamento padrão
-  // Se chegou até aqui, permite o acesso (pode ser uma rota dinâmica)
   return NextResponse.next();
 }
-
-// =============================================================================
-// CONFIGURAÇÃO DO MIDDLEWARE
-// =============================================================================
 
 export const config = {
   /*

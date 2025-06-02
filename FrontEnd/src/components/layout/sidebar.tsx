@@ -15,8 +15,10 @@ import {
   LogOut,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useTheme } from "@/components/theme-provider"; // Import custom useTheme hook
+import { useTheme } from "@/components/theme-provider";
 import { ThemeProvider } from "@/components/theme-provider";
+import { logout } from "@/lib/auth";
+import { toast } from "sonner";
 
 const routes = [
   {
@@ -68,28 +70,38 @@ const adminRoutes = [
 ];
 
 interface SidebarProps {
-  userRole?: "ADMIN" | "COORDENADOR" | "PROFESSOR" | "ALUNO";
+  userRole?: "ADMIN" | "USER";
   userName?: string;
   userImage?: string;
 }
 
 export const Sidebar = ({
-  userRole = "PROFESSOR",
+  userRole = "USER",
   userName = "Usuário",
   userImage,
 }: SidebarProps) => {
   const pathname = usePathname();
-  const { theme } = useTheme(); // Get current theme from custom provider
+  const { theme } = useTheme();
 
   // Determine if dark mode is active based on theme value
   const isDarkMode = theme === "dark";
-  const isAdmin = userRole === "ADMIN" || userRole === "COORDENADOR";
+  const isAdmin = userRole === "ADMIN";
+
+  const handleLogout = () => {
+    try {
+      logout();
+      toast.success("Logout realizado com sucesso!");
+    } catch (error) {
+      console.error("Erro no logout:", error);
+      toast.error("Erro ao fazer logout");
+    }
+  };
 
   return (
     <div
       className={cn(
         "space-y-4 py-4 flex flex-col h-full border-r-2",
-        isDarkMode ? "bg-background text-white" : "bg-white text-slate-900 "
+        isDarkMode ? "bg-background text-white" : "bg-white text-slate-900"
       )}
     >
       <div className="px-3 py-2 flex-1">
@@ -115,12 +127,6 @@ export const Sidebar = ({
             </div>
             <h1 className="text-2xl font-bold">BioConnect</h1>
           </Link>
-          <ThemeProvider
-            children=""
-            attribute="class"
-            defaultTheme="light"
-            enableSystem
-          />
         </div>
         <div className="space-y-1">
           {routes.map((route) => (
@@ -188,14 +194,15 @@ export const Sidebar = ({
           isDarkMode ? "border-gray-800" : "border-slate-200"
         )}
       >
-        <div className="flex items-center gap-x-4 pl-3 py-2">
+        <div className="flex items-center gap-x-4 pl-3 py-1">
           <Avatar>
             <AvatarImage src={userImage} />
             <AvatarFallback className="bg-sky-500">
               {userName.substring(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <div className="flex flex-col">
+          <span className="text-sm font-medium">{userName}</span>
+          {/* <div className="flex flex-col">
             <span className="text-sm font-medium">{userName}</span>
             <span
               className={
@@ -204,7 +211,7 @@ export const Sidebar = ({
             >
               {userRole}
             </span>
-          </div>
+          </div> */}
           <Button
             variant="ghost"
             size="icon"
@@ -214,6 +221,8 @@ export const Sidebar = ({
                 ? "text-zinc-400 hover:text-white"
                 : "text-slate-500 hover:text-slate-900"
             )}
+            onClick={handleLogout}
+            title="Sair"
           >
             <LogOut className="h-5 w-5" />
           </Button>

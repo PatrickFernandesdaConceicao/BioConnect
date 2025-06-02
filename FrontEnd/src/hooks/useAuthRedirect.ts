@@ -19,9 +19,7 @@ export function useAuthRedirect() {
   };
 
   const redirectToLogin = (currentPath?: string) => {
-    const loginUrl = currentPath
-      ? `/auth/login?callbackUrl=${encodeURIComponent(currentPath)}`
-      : "/auth/login";
+    const loginUrl = "/login";
     router.push(loginUrl);
   };
 

@@ -104,12 +104,14 @@ export default function RegisterPage() {
   ): Promise<RegisterResponse> {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
+    const user = `{"login":"${userData.login}","senha":"${userData.senha}","nome":"${userData.nome}","email":"${userData.email}","role":"USER"}`;
+
     const response = await fetch(`${apiUrl}/auth/register`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(userData),
+      body: user,
     });
 
     const responseData = await response.json().catch(() => ({}));
@@ -133,11 +135,11 @@ export default function RegisterPage() {
     try {
       // Preparar dados para envio à API (role sempre será "USER")
       const registerData: RegisterRequest = {
-        login: values.login,
+        login: values.login, // aspas explícitas
         senha: values.senha,
         nome: values.nome,
         email: values.email,
-        role: "USER", // Sempre será USER por padrão
+        role: "USER",
       };
 
       await registerUser(registerData);
@@ -152,7 +154,7 @@ export default function RegisterPage() {
 
       // Redirecionar para login após 2 segundos
       setTimeout(() => {
-        router.push("/login");
+        router.push("/dashboard");
       }, 2000);
     } catch (error: any) {
       console.error("Erro ao registrar:", error);
@@ -165,7 +167,6 @@ export default function RegisterPage() {
             senha: "senha",
             nome: "nome",
             email: "email",
-            role: "role",
           };
 
           const formField = fieldMap[key];
@@ -399,7 +400,7 @@ export default function RegisterPage() {
               <p className="text-sm text-slate-600">
                 Já tem uma conta?{" "}
                 <Link
-                  href="/auth/login"
+                  href="/login"
                   className="text-blue-600 hover:underline font-medium"
                 >
                   Faça login

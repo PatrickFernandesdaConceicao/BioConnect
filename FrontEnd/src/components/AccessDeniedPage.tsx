@@ -41,11 +41,13 @@ export function AccessDeniedPage() {
               </Link>
             </Button>
 
-            <Button variant="outline" asChild className="w-full">
-              <Link href="javascript:history.back()">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Voltar
-              </Link>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => window.history.back()}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar
             </Button>
           </div>
 

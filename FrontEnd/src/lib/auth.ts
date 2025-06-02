@@ -32,6 +32,25 @@ export interface AuthState {
   token: string | null;
 }
 
+// Salvar dados de autenticação
+export function saveAuthData(
+  token: string,
+  userData: User,
+  rememberMe: boolean = false
+): void {
+  if (typeof window === "undefined") return;
+
+  const storage = rememberMe ? localStorage : sessionStorage;
+
+  storage.setItem("bioconnect_token", token);
+  storage.setItem("bioconnect_user", JSON.stringify(userData));
+
+  // Limpar dados do armazenamento oposto se necessário
+  const oppositeStorage = rememberMe ? sessionStorage : localStorage;
+  oppositeStorage.removeItem("bioconnect_token");
+  oppositeStorage.removeItem("bioconnect_user");
+}
+
 // Verificar se o usuário está autenticado
 export function isAuthenticated(): boolean {
   if (typeof window === "undefined") return false;
@@ -39,7 +58,7 @@ export function isAuthenticated(): boolean {
   const token = getToken();
   const user = getUser();
 
-  return !!(token && user);
+  return !!(token && user && !isTokenExpired());
 }
 
 // Obter token do armazenamento
@@ -75,35 +94,29 @@ export function getAuthState(): AuthState {
   const user = getUser();
 
   return {
-    isAuthenticated: !!(token && user),
+    isAuthenticated: !!(token && user && !isTokenExpired()),
     user,
     token,
   };
 }
 
-// Fazer logout
 export function logout(): void {
   if (typeof window === "undefined") return;
 
-  // Remover dados do localStorage
   localStorage.removeItem("bioconnect_token");
   localStorage.removeItem("bioconnect_user");
 
-  // Remover dados do sessionStorage
   sessionStorage.removeItem("bioconnect_token");
   sessionStorage.removeItem("bioconnect_user");
 
-  // Opcional: Redirecionar para login
-  window.location.href = "/auth/login";
+  window.location.href = "/login";
 }
 
-// Verificar se o token está expirado
 export function isTokenExpired(): boolean {
   const token = getToken();
   if (!token) return true;
 
   try {
-    // Decodificar JWT para verificar expiração
     const payload = JSON.parse(atob(token.split(".")[1]));
     const currentTime = Math.floor(Date.now() / 1000);
 
@@ -113,7 +126,6 @@ export function isTokenExpired(): boolean {
   }
 }
 
-// Verificar permissões do usuário
 export function hasPermission(requiredRole: User["tipo"]): boolean {
   const user = getUser();
   if (!user) return false;
@@ -129,7 +141,6 @@ export function hasPermission(requiredRole: User["tipo"]): boolean {
   return userLevel >= requiredLevel;
 }
 
-// Função para registrar usuário
 export async function registerUser(
   userData: RegisterData
 ): Promise<RegisterResponse> {
@@ -158,7 +169,6 @@ export async function registerUser(
   return responseData;
 }
 
-// Interceptador para requisições autenticadas
 export async function authFetch(
   url: string,
   options: RequestInit = {}
@@ -182,24 +192,21 @@ export async function authFetch(
   });
 }
 
-// Hook personalizado para autenticação (se usando React)
 export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>(() => getAuthState());
 
   useEffect(() => {
-    // Verificar mudanças no armazenamento
     const handleStorageChange = () => {
       setAuthState(getAuthState());
     };
 
     window.addEventListener("storage", handleStorageChange);
 
-    // Verificar token expirado periodicamente
     const checkTokenInterval = setInterval(() => {
       if (isTokenExpired() && authState.isAuthenticated) {
         logout();
       }
-    }, 60000); // Verificar a cada minuto
+    }, 60000);
 
     return () => {
       window.removeEventListener("storage", handleStorageChange);
@@ -214,9 +221,7 @@ export function useAuth() {
   };
 }
 
-// Configuração para axios (se estiver usando)
 export function setupAxiosInterceptors(axiosInstance: any) {
-  // Request interceptor para adicionar token
   axiosInstance.interceptors.request.use(
     (config: any) => {
       const token = getToken();
@@ -228,7 +233,6 @@ export function setupAxiosInterceptors(axiosInstance: any) {
     (error: any) => Promise.reject(error)
   );
 
-  // Response interceptor para lidar com erros de autenticação
   axiosInstance.interceptors.response.use(
     (response: any) => response,
     (error: any) => {
@@ -240,7 +244,6 @@ export function setupAxiosInterceptors(axiosInstance: any) {
   );
 }
 
-// Utilitário para redirecionar usuários não autenticados
 export function requireAuth(redirectTo: string = "/auth/login") {
   if (typeof window !== "undefined" && !isAuthenticated()) {
     window.location.href = redirectTo;
@@ -249,7 +252,6 @@ export function requireAuth(redirectTo: string = "/auth/login") {
   return true;
 }
 
-// Utilitário para proteger rotas baseado em permissões
 export function requirePermission(
   requiredRole: User["tipo"],
   redirectTo: string = "/dashboard"
@@ -266,7 +268,6 @@ export function requirePermission(
   return true;
 }
 
-// Validar força da senha
 export function validatePasswordStrength(password: string): {
   isValid: boolean;
   errors: string[];
@@ -295,7 +296,6 @@ export function validatePasswordStrength(password: string): {
   };
 }
 
-// Validar formato do login
 export function validateLoginFormat(login: string): {
   isValid: boolean;
   errors: string[];
@@ -318,11 +318,11 @@ export function validateLoginFormat(login: string): {
   };
 }
 
-// Mapear role do backend para tipo do frontend
 export function mapRoleToTipo(role: string): User["tipo"] {
   const roleMap: Record<string, User["tipo"]> = {
     USER: "USER",
     ADMIN: "ADMIN",
+    ADMINISTRADOR: "ADMIN",
   };
 
   return roleMap[role] || "USER";
