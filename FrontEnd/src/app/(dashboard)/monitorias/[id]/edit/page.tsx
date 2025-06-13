@@ -1,4 +1,3 @@
-// src/app/(dashboard)/monitorias/[id]/edit/page.tsx
 "use client";
 
 import { useParams } from "next/navigation";
@@ -51,7 +50,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-// Schema de validação
 const monitoriaSchema = z.object({
   disciplinaId: z.number({ required_error: "Selecione uma disciplina" }),
   cursoId: z.number({ required_error: "Selecione um curso" }),
@@ -133,7 +131,6 @@ export default function EditMonitoriaPage() {
     fetchMasterData();
   }, []);
 
-  // Carregar dados da monitoria
   useEffect(() => {
     const monitoria = monitorias.find((m) => m.id.toString() === monitoriaId);
     if (monitoria) {
@@ -159,7 +156,6 @@ export default function EditMonitoriaPage() {
     }
   }, [monitoriaId, monitorias, form]);
 
-  // Alternar seleção de dia da semana
   const toggleDiaSemana = (dia: string) => {
     const novosDias = diasSelecionados.includes(dia)
       ? diasSelecionados.filter((d) => d !== dia)
@@ -168,7 +164,6 @@ export default function EditMonitoriaPage() {
     form.setValue("diasSemana", novosDias);
   };
 
-  // Submit do formulário
   async function onSubmit(values: MonitoriaFormValues) {
     setIsSubmitting(true);
 

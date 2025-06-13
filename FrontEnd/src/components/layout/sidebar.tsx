@@ -1,4 +1,3 @@
-// src/components/layout/sidebar.tsx
 "use client";
 
 import Link from "next/link";
@@ -60,7 +59,6 @@ const routes = [
   },
 ];
 
-// Rotas administrativas que só são mostradas para Admin
 const adminRoutes = [
   {
     label: "Usuários",
@@ -92,7 +90,6 @@ export const Sidebar = ({
   const pathname = usePathname();
   const { theme } = useTheme();
 
-  // Determine if dark mode is active based on theme value
   const isDarkMode = theme === "dark";
   const isAdmin = userRole === "ADMIN";
 
@@ -106,7 +103,6 @@ export const Sidebar = ({
     }
   };
 
-  // Filtrar rotas baseado no role do usuário
   const visibleRoutes = routes.filter((route) =>
     route.roles.includes(userRole)
   );

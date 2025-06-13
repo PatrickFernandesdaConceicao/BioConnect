@@ -135,7 +135,7 @@ function createRedirectResponse(
     preserveCallback &&
     isProtectedRoute(request.nextUrl.pathname) &&
     destination.includes("/login") &&
-    request.nextUrl.pathname !== "/dashboard" // Não preservar para dashboard
+    request.nextUrl.pathname !== "/dashboard"
   ) {
     redirectUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);
   }

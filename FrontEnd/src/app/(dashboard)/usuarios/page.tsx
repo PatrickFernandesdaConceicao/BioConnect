@@ -1,4 +1,3 @@
-// src/app/(dashboard)/usuarios/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -100,7 +99,6 @@ export default function UsuariosPage() {
     fetchUsuarios();
   }, []);
 
-  // Filtrar usuários
   const filteredUsuarios = usuarios.filter((usuario) => {
     const matchesSearch =
       usuario.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -116,7 +114,6 @@ export default function UsuariosPage() {
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  // Toggle status do usuário
   const handleToggleStatus = async (
     id: string,
     ativo: boolean,
@@ -132,7 +129,6 @@ export default function UsuariosPage() {
     }
   };
 
-  // Deletar usuário
   const handleDeleteUsuario = async (id: string, nome: string) => {
     if (id === currentUser?.id) {
       toast.error("Você não pode deletar sua própria conta!");
@@ -147,7 +143,6 @@ export default function UsuariosPage() {
     }
   };
 
-  // Abrir dialog de edição
   const handleEditUser = (usuario: any) => {
     setEditingUser({
       id: usuario.id,
@@ -160,7 +155,6 @@ export default function UsuariosPage() {
     setIsEditDialogOpen(true);
   };
 
-  // Salvar edição do usuário
   const handleSaveUser = async () => {
     if (!editingUser) return;
 

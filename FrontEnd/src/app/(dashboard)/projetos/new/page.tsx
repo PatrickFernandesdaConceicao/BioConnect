@@ -1,4 +1,3 @@
-// src/app/(dashboard)/projetos/new/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -53,7 +52,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-// Schema de validação corrigido
 const projetoSchema = z.object({
   titulo: z.string().min(5, "O título deve ter pelo menos 5 caracteres"),
   descricao: z
@@ -92,7 +90,6 @@ const projetoSchema = z.object({
 
 type ProjetoFormValues = z.infer<typeof projetoSchema>;
 
-// Opções para os selects
 const areasConhecimento = [
   "Biotecnologia",
   "Saúde",
@@ -151,7 +148,6 @@ export default function NewProjetoPage() {
 
   const possuiOrcamento = form.watch("possuiOrcamento");
 
-  // Adicionar participante
   const handleAddParticipante = () => {
     if (emailParticipante && !participantes.includes(emailParticipante)) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -164,12 +160,10 @@ export default function NewProjetoPage() {
     }
   };
 
-  // Remover participante
   const handleRemoveParticipante = (email: string) => {
     setParticipantes(participantes.filter((e) => e !== email));
   };
 
-  // Submit do formulário
   async function onSubmit(values: ProjetoFormValues) {
     setIsSubmitting(true);
 

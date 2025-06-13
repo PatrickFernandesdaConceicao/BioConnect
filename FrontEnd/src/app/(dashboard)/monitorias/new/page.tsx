@@ -1,4 +1,3 @@
-// src/app/(dashboard)/monitorias/new/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -51,12 +50,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-// Schema de validação
 const monitoriaSchema = z.object({
-  disciplinaId: z.number().min(1, "Selecione uma disciplina"),
-  cursoId: z.number().min(1, "Selecione um curso"),
+  disciplinaId: z.string().min(1, "Selecione uma disciplina"),
+  cursoId: z.string().min(1, "Selecione um curso"),
   semestre: z.string().min(1, "Selecione o semestre"),
-  cargaHoraria: z.number().min(1, "A carga horária deve ser maior que 0"),
+  cargaHoraria: z.string().min(1, "A carga horária é obrigatória"),
   dataInicio: z.string().min(1, "A data de início é obrigatória"),
   dataTermino: z.string().min(1, "A data de término é obrigatória"),
   diasSemana: z
@@ -66,7 +64,7 @@ const monitoriaSchema = z.object({
   horarioTermino: z.string().min(1, "O horário de término é obrigatório"),
   sala: z.string().optional(),
   bolsa: z.boolean(),
-  valorBolsa: z.number().optional(),
+  valorBolsa: z.string().optional(),
   requisitos: z.string().optional(),
   atividades: z.string().optional(),
   alunoPreSelecionado: z.string().optional(),
@@ -89,40 +87,15 @@ const diasSemana = [
 
 const semestres = ["2024/1", "2024/2", "2025/1", "2025/2", "2026/1", "2026/2"];
 
-// Dados mock enquanto não carrega do backend
-const mockDisciplinas = [
-  {
-    id: 1,
-    nome: "Algoritmos e Estruturas de Dados",
-    codigo: "AED001",
-    cargaHoraria: 80,
-  },
-  { id: 2, nome: "Cálculo I", codigo: "MAT001", cargaHoraria: 80 },
-  { id: 3, nome: "Bioquímica Celular", codigo: "BIO001", cargaHoraria: 60 },
-  { id: 4, nome: "Anatomia Humana", codigo: "MED001", cargaHoraria: 100 },
-  { id: 5, nome: "Programação Web", codigo: "INF001", cargaHoraria: 80 },
-  { id: 6, nome: "Microbiologia", codigo: "BIO002", cargaHoraria: 60 },
-  { id: 7, nome: "Estatística", codigo: "MAT002", cargaHoraria: 60 },
-  { id: 8, nome: "Química Orgânica", codigo: "QUI001", cargaHoraria: 80 },
-];
-
-const mockCursos = [
-  {
-    id: 1,
-    nome: "Análise e Desenvolvimento de Sistemas",
-    codigo: "ADS",
-    tipo: "Tecnólogo",
-  },
-  { id: 2, nome: "Engenharia de Software", codigo: "ES", tipo: "Bacharelado" },
-  { id: 3, nome: "Biotecnologia", codigo: "BT", tipo: "Bacharelado" },
-  { id: 4, nome: "Enfermagem", codigo: "ENF", tipo: "Bacharelado" },
-  { id: 5, nome: "Engenharia Biomédica", codigo: "EBM", tipo: "Bacharelado" },
-];
-
 export default function NewMonitoriaPage() {
   const router = useRouter();
   const { createMonitoria } = useMonitorias();
-  const { disciplinas, cursos, fetchMasterData } = useMasterData();
+  const {
+    disciplinas,
+    cursos,
+    fetchMasterData,
+    loading: masterDataLoading,
+  } = useMasterData();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("basicas");
@@ -130,10 +103,10 @@ export default function NewMonitoriaPage() {
   const form = useForm<MonitoriaFormValues>({
     resolver: zodResolver(monitoriaSchema),
     defaultValues: {
-      disciplinaId: 0,
-      cursoId: 0,
+      disciplinaId: "",
+      cursoId: "",
       semestre: "",
-      cargaHoraria: 0,
+      cargaHoraria: "",
       dataInicio: "",
       dataTermino: "",
       diasSemana: [],
@@ -141,7 +114,7 @@ export default function NewMonitoriaPage() {
       horarioTermino: "",
       sala: "",
       bolsa: false,
-      valorBolsa: 0,
+      valorBolsa: "",
       requisitos: "",
       atividades: "",
       alunoPreSelecionado: "",
@@ -154,30 +127,41 @@ export default function NewMonitoriaPage() {
 
   useEffect(() => {
     fetchMasterData();
-  }, [fetchMasterData]);
+  }, []);
 
-  // Usar dados mock se não carregou do backend
-  const disciplinasDisponiveis =
-    disciplinas.length > 0 ? disciplinas : mockDisciplinas;
-  const cursosDisponiveis = cursos.length > 0 ? cursos : mockCursos;
-
-  // Alternar seleção de dia da semana
   const toggleDiaSemana = (dia: string) => {
-    const novosDias = diasSelecionados.includes(dia)
-      ? diasSelecionados.filter((d) => d !== dia)
-      : [...diasSelecionados, dia];
+    const currentDias = form.getValues("diasSemana");
+    const novosDias = currentDias.includes(dia)
+      ? currentDias.filter((d) => d !== dia)
+      : [...currentDias, dia];
 
     form.setValue("diasSemana", novosDias);
   };
 
-  // Submit do formulário
   async function onSubmit(values: MonitoriaFormValues) {
     setIsSubmitting(true);
 
     try {
       const monitoriaData: MonitoriaData = {
-        ...values,
-        valorBolsa: values.bolsa ? values.valorBolsa : undefined,
+        disciplinaId: parseInt(values.disciplinaId),
+        cursoId: parseInt(values.cursoId),
+        semestre: values.semestre,
+        cargaHoraria: parseInt(values.cargaHoraria),
+        dataInicio: values.dataInicio,
+        dataTermino: values.dataTermino,
+        diasSemana: values.diasSemana,
+        horarioInicio: values.horarioInicio,
+        horarioTermino: values.horarioTermino,
+        sala: values.sala || "",
+        bolsa: values.bolsa,
+        valorBolsa:
+          values.bolsa && values.valorBolsa
+            ? parseFloat(values.valorBolsa)
+            : undefined,
+        requisitos: values.requisitos || "",
+        atividades: values.atividades || "",
+        alunoPreSelecionado: values.alunoPreSelecionado || "",
+        termosAceitos: values.termosAceitos,
       };
 
       await createMonitoria(monitoriaData);
@@ -208,14 +192,13 @@ export default function NewMonitoriaPage() {
         </div>
       </div>
 
-      {/* Aviso sobre dados mock */}
-      {disciplinasDisponiveis === mockDisciplinas && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+      {/* Loading Master Data */}
+      {masterDataLoading && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center">
-            <AlertCircle className="h-4 w-4 text-yellow-600 mr-2" />
-            <p className="text-yellow-800 text-sm">
-              Usando dados de exemplo. Configure as disciplinas e cursos no
-              sistema para opções reais.
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+            <p className="text-blue-800 text-sm">
+              Carregando disciplinas e cursos...
             </p>
           </div>
         </div>
@@ -261,10 +244,8 @@ export default function NewMonitoriaPage() {
                         <FormItem>
                           <FormLabel>Disciplina *</FormLabel>
                           <Select
-                            onValueChange={(value) =>
-                              field.onChange(parseInt(value))
-                            }
-                            value={field.value ? field.value.toString() : ""}
+                            onValueChange={field.onChange}
+                            value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger>
@@ -272,7 +253,7 @@ export default function NewMonitoriaPage() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {disciplinasDisponiveis.map((disciplina) => (
+                              {disciplinas.map((disciplina) => (
                                 <SelectItem
                                   key={disciplina.id}
                                   value={disciplina.id.toString()}
@@ -294,10 +275,8 @@ export default function NewMonitoriaPage() {
                         <FormItem>
                           <FormLabel>Curso *</FormLabel>
                           <Select
-                            onValueChange={(value) =>
-                              field.onChange(parseInt(value))
-                            }
-                            value={field.value ? field.value.toString() : ""}
+                            onValueChange={field.onChange}
+                            value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger>
@@ -305,7 +284,7 @@ export default function NewMonitoriaPage() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {cursosDisponiveis.map((curso) => (
+                              {cursos.map((curso) => (
                                 <SelectItem
                                   key={curso.id}
                                   value={curso.id.toString()}
@@ -360,9 +339,6 @@ export default function NewMonitoriaPage() {
                               min="1"
                               placeholder="Ex: 60"
                               {...field}
-                              onChange={(e) =>
-                                field.onChange(parseInt(e.target.value) || 0)
-                              }
                             />
                           </FormControl>
                           <FormMessage />
@@ -538,9 +514,6 @@ export default function NewMonitoriaPage() {
                               min="0"
                               placeholder="0,00"
                               {...field}
-                              onChange={(e) =>
-                                field.onChange(parseFloat(e.target.value) || 0)
-                              }
                             />
                           </FormControl>
                           <FormMessage />
@@ -557,15 +530,11 @@ export default function NewMonitoriaPage() {
                         <FormLabel>Requisitos (Opcional)</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Ex: Ter cursado a disciplina com aproveitamento mínimo de 8.0, conhecimentos em..."
+                            placeholder="Ex: Ter cursado a disciplina com aproveitamento mínimo de 8.0"
                             className="min-h-[100px]"
                             {...field}
                           />
                         </FormControl>
-                        <FormDescription>
-                          Descreva os requisitos necessários para participar da
-                          monitoria
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -579,15 +548,11 @@ export default function NewMonitoriaPage() {
                         <FormLabel>Atividades (Opcional)</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Ex: Auxiliar nas aulas práticas, tirar dúvidas dos alunos, preparar material..."
+                            placeholder="Ex: Auxiliar nas aulas práticas, tirar dúvidas dos alunos"
                             className="min-h-[100px]"
                             {...field}
                           />
                         </FormControl>
-                        <FormDescription>
-                          Descreva as principais atividades que o monitor irá
-                          desenvolver
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -605,9 +570,6 @@ export default function NewMonitoriaPage() {
                             {...field}
                           />
                         </FormControl>
-                        <FormDescription>
-                          Se houver um aluno já indicado para a monitoria
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -635,9 +597,7 @@ export default function NewMonitoriaPage() {
                       <div className="space-y-1 leading-none">
                         <FormLabel>Aceito os termos e condições *</FormLabel>
                         <FormDescription>
-                          Estou ciente das responsabilidades da monitoria e
-                          aceito os termos do programa de monitoria da
-                          instituição.
+                          Estou ciente das responsabilidades da monitoria.
                         </FormDescription>
                         <FormMessage />
                       </div>

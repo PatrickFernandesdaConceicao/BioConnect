@@ -1,4 +1,3 @@
-// src/contexts/AppContext.tsx
 "use client";
 
 import React, { createContext, useContext, useReducer, ReactNode } from "react";
@@ -279,32 +278,29 @@ function appReducer(state: AppState, action: AppAction): AppState {
 // CONTEXT
 // ===================================================================
 interface AppContextType extends AppState {
-  // Projetos
   fetchProjetos: () => Promise<void>;
   createProjeto: (data: ProjetoData) => Promise<void>;
   updateProjeto: (id: number, data: Partial<ProjetoData>) => Promise<void>;
   deleteProjeto: (id: number) => Promise<void>;
 
-  // Monitorias
   fetchMonitorias: () => Promise<void>;
   createMonitoria: (data: MonitoriaData) => Promise<void>;
   updateMonitoria: (id: number, data: Partial<MonitoriaData>) => Promise<void>;
   deleteMonitoria: (id: number) => Promise<void>;
 
-  // Eventos
   fetchEventos: () => Promise<void>;
   createEvento: (data: EventoData) => Promise<void>;
   updateEvento: (id: number, data: Partial<EventoData>) => Promise<void>;
   deleteEvento: (id: number) => Promise<void>;
 
-  // Usuários (Admin only)
   fetchUsuarios: () => Promise<void>;
   updateUsuario: (id: string, data: Partial<Usuario>) => Promise<void>;
   deleteUsuario: (id: string) => Promise<void>;
   toggleUsuarioStatus: (id: string, ativo: boolean) => Promise<void>;
 
-  // Master data
   fetchMasterData: () => Promise<void>;
+  fetchDisciplinas: () => Promise<void>;
+  fetchCursos: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -335,7 +331,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         type: "SET_ERROR",
         payload: { key: errorKey, value: message },
       });
-      console.error(`Erro em ${loadingKey}:`, error);
       throw error;
     } finally {
       dispatch({
@@ -590,34 +585,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // ===================================================================
-  // MASTER DATA
+  // MASTER DATA - ENDPOINTS REAIS!!!
   // ===================================================================
+  const fetchDisciplinas = async () => {
+    try {
+      const response = await authFetch(`${API_URL}/api/disciplinas`);
+      if (!response.ok) {
+        throw new Error(`Erro ao buscar disciplinas: ${response.status}`);
+      }
+      const disciplinas = await response.json();
+      dispatch({ type: "SET_DISCIPLINAS", payload: disciplinas });
+    } catch (error) {
+      dispatch({ type: "SET_DISCIPLINAS", payload: [] });
+      throw error;
+    }
+  };
+
+  const fetchCursos = async () => {
+    try {
+      const response = await authFetch(`${API_URL}/api/cursos`);
+      if (!response.ok) {
+        throw new Error(`Erro ao buscar cursos: ${response.status}`);
+      }
+      const cursos = await response.json();
+      dispatch({ type: "SET_CURSOS", payload: cursos });
+    } catch (error) {
+      dispatch({ type: "SET_CURSOS", payload: [] });
+      throw error;
+    }
+  };
+
   const fetchMasterData = async () => {
     await handleAsync(
       async () => {
-        try {
-          // Tentar buscar disciplinas
-          const disciplinasResponse = await authFetch(
-            `${API_URL}/api/disciplinas`
-          );
-          const disciplinas = disciplinasResponse.ok
-            ? await disciplinasResponse.json()
-            : [];
-          dispatch({ type: "SET_DISCIPLINAS", payload: disciplinas });
-        } catch (error) {
-          console.log("Disciplinas não disponíveis, usando dados mock");
-          dispatch({ type: "SET_DISCIPLINAS", payload: [] });
-        }
+        const promises = [
+          fetchDisciplinas().catch((error) => {
+            return null;
+          }),
+          fetchCursos().catch((error) => {
+            return null;
+          }),
+        ];
 
-        try {
-          // Tentar buscar cursos
-          const cursosResponse = await authFetch(`${API_URL}/api/cursos`);
-          const cursos = cursosResponse.ok ? await cursosResponse.json() : [];
-          dispatch({ type: "SET_CURSOS", payload: cursos });
-        } catch (error) {
-          console.log("Cursos não disponíveis, usando dados mock");
-          dispatch({ type: "SET_CURSOS", payload: [] });
-        }
+        await Promise.allSettled(promises);
       },
       "masterData",
       "masterData"
@@ -646,6 +656,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     deleteUsuario,
     toggleUsuarioStatus,
     fetchMasterData,
+    fetchDisciplinas,
+    fetchCursos,
   };
 
   return (
@@ -664,7 +676,6 @@ export function useApp() {
   return context;
 }
 
-// Hook específico para projetos
 export function useProjetos() {
   const {
     projetos,
@@ -687,7 +698,6 @@ export function useProjetos() {
   };
 }
 
-// Hook específico para monitorias
 export function useMonitorias() {
   const {
     monitorias,
@@ -710,7 +720,6 @@ export function useMonitorias() {
   };
 }
 
-// Hook específico para eventos
 export function useEventos() {
   const {
     eventos,
@@ -733,7 +742,6 @@ export function useEventos() {
   };
 }
 
-// Hook para admin (com verificação de permissão)
 export function useAdmin() {
   const {
     usuarios,
@@ -756,9 +764,16 @@ export function useAdmin() {
   };
 }
 
-// Hook para master data
 export function useMasterData() {
-  const { disciplinas, cursos, loading, error, fetchMasterData } = useApp();
+  const {
+    disciplinas,
+    cursos,
+    loading,
+    error,
+    fetchMasterData,
+    fetchDisciplinas,
+    fetchCursos,
+  } = useApp();
 
   return {
     disciplinas,
@@ -766,5 +781,7 @@ export function useMasterData() {
     loading: loading.masterData,
     error: error.masterData,
     fetchMasterData,
+    fetchDisciplinas,
+    fetchCursos,
   };
 }

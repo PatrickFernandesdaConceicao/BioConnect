@@ -32,17 +32,14 @@ export function RouteGuard({
   useEffect(() => {
     const checkAccess = () => {
       try {
-        // Verificar se está autenticado
         if (!isAuthenticated() || isTokenExpired()) {
           console.log("[RouteGuard] User not authenticated or token expired");
 
-          // Para dashboard, vai direto para login
           if (pathname === "/dashboard") {
             router.push("/login");
             return;
           }
 
-          // Para outras rotas, preserva callback apenas se for uma rota específica
           const shouldPreserveCallback =
             pathname.startsWith("/projetos/") ||
             pathname.startsWith("/eventos/") ||
@@ -56,7 +53,6 @@ export function RouteGuard({
           return;
         }
 
-        // Se tem roles específicas, verifica permissões
         if (requiredRoles && requiredRoles.length > 0) {
           const user = getUser();
           if (!user) {
@@ -94,7 +90,6 @@ export function RouteGuard({
       }
     };
 
-    // Pequeno delay para evitar flash de conteúdo
     const timer = setTimeout(checkAccess, 100);
 
     return () => clearTimeout(timer);

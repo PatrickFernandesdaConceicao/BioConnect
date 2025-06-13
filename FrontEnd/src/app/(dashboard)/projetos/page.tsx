@@ -81,7 +81,6 @@ export default function ProjetosPage() {
     fetchProjetos();
   }, []);
 
-  // Filtrar projetos
   const filteredProjetos = projetos.filter((projeto) => {
     const matchesSearch =
       projeto.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -95,7 +94,6 @@ export default function ProjetosPage() {
     return matchesSearch && matchesStatus && matchesArea;
   });
 
-  // Obter status badge
   const getStatusBadge = (status?: string) => {
     const statusConfig = {
       PENDENTE: { label: "Pendente", variant: "secondary" as const },
@@ -113,7 +111,6 @@ export default function ProjetosPage() {
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  // Deletar projeto
   const handleDeleteProjeto = async (id: number, titulo: string) => {
     try {
       await deleteProjeto(id);
@@ -123,7 +120,6 @@ export default function ProjetosPage() {
     }
   };
 
-  // Áreas de conhecimento únicas
   const areasConhecimento = [
     ...new Set(projetos.map((p) => p.areaConhecimento)),
   ];

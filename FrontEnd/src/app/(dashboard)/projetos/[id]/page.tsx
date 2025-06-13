@@ -1,4 +1,3 @@
-// src/app/(dashboard)/projetos/[id]/page.tsx
 "use client";
 
 import { useParams, useRouter } from "next/navigation";

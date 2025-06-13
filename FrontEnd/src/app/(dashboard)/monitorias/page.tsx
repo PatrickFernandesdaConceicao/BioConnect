@@ -83,7 +83,6 @@ export default function MonitoriasPage() {
     fetchMasterData();
   }, []);
 
-  // Filtrar monitorias
   const filteredMonitorias = monitorias.filter((monitoria) => {
     const matchesSearch =
       monitoria.disciplinaNome
@@ -99,7 +98,6 @@ export default function MonitoriasPage() {
       (bolsaFilter === "com_bolsa" && monitoria.bolsa) ||
       (bolsaFilter === "sem_bolsa" && !monitoria.bolsa);
 
-    // Status baseado nas datas
     const today = new Date();
     let matchesStatus = true;
 
@@ -116,7 +114,6 @@ export default function MonitoriasPage() {
     return matchesSearch && matchesCurso && matchesStatus && matchesBolsa;
   });
 
-  // Obter status da monitoria baseado nas datas
   const getMonitoriaStatus = (dataInicio: string, dataTermino: string) => {
     const today = new Date();
     const inicio = new Date(dataInicio);
@@ -132,7 +129,6 @@ export default function MonitoriasPage() {
     return { label: "Indefinido", variant: "secondary" as const };
   };
 
-  // Formatar dias da semana
   const formatDiasSemana = (dias: string[]) => {
     const diasMap: Record<string, string> = {
       DOMINGO: "Dom",
@@ -147,7 +143,6 @@ export default function MonitoriasPage() {
     return dias.map((dia) => diasMap[dia] || dia).join(", ");
   };
 
-  // Deletar monitoria
   const handleDeleteMonitoria = async (id: number, disciplina: string) => {
     try {
       await deleteMonitoria(id);

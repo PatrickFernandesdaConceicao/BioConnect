@@ -1,4 +1,3 @@
-// src/app/(dashboard)/eventos/new/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -83,7 +82,6 @@ export default function NewEventoPage() {
   const [nomeParticipante, setNomeParticipante] = useState("");
   const [emailParticipante, setEmailParticipante] = useState("");
 
-  // Verificar se é admin
   if (!hasPermission("ADMIN")) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -118,7 +116,6 @@ export default function NewEventoPage() {
     },
   });
 
-  // Adicionar participante
   const handleAddParticipante = () => {
     if (nomeParticipante && emailParticipante) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -142,12 +139,10 @@ export default function NewEventoPage() {
     }
   };
 
-  // Remover participante
   const handleRemoveParticipante = (email: string) => {
     setParticipantes(participantes.filter((p) => p.email !== email));
   };
 
-  // Submit do formulário
   async function onSubmit(values: EventoFormValues) {
     setIsSubmitting(true);
 

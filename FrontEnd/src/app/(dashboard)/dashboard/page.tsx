@@ -1,4 +1,3 @@
-// src/app/(dashboard)/dashboard/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -71,22 +70,18 @@ export default function DashboardPage() {
   } = useApp();
 
   useEffect(() => {
-    // Carregar dados iniciais
     fetchProjetos();
     fetchEventos();
     fetchMonitorias();
   }, []);
 
-  // Cálculos de estatísticas
   const today = new Date();
   const last30Days = subDays(today, 30);
 
-  // Projetos
   const projetosAtivos = projetos.filter((p) => p.status === "EM_ANDAMENTO");
   const projetosConcluidos = projetos.filter((p) => p.status === "CONCLUIDO");
   const projetosPendentes = projetos.filter((p) => p.status === "PENDENTE");
 
-  // Eventos
   const eventosProximos = eventos.filter((e) =>
     isAfter(new Date(e.dataInicio), today)
   );
@@ -96,13 +91,11 @@ export default function DashboardPage() {
       isAfter(new Date(e.dataTermino), today)
   );
 
-  // Monitorias
   const monitoriasAbertas = monitorias.filter((m) =>
     isAfter(new Date(m.dataInicio), today)
   );
   const monitoriasComBolsa = monitorias.filter((m) => m.bolsa);
 
-  // Dados para gráficos
   const atividadesPorMes = [
     { mes: "Jan", projetos: 4, eventos: 2, monitorias: 3 },
     { mes: "Fev", projetos: 3, eventos: 4, monitorias: 5 },
@@ -121,7 +114,6 @@ export default function DashboardPage() {
     { name: "Pendentes", value: projetosPendentes.length, color: "#f59e0b" },
   ];
 
-  // Atividades recentes
   const atividadesRecentes = [
     ...projetos.slice(0, 3).map((p) => ({
       id: p.id,

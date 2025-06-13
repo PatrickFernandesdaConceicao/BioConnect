@@ -51,7 +51,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-// Schema de validação
 const projetoSchema = z.object({
   titulo: z.string().min(5, "O título deve ter pelo menos 5 caracteres"),
   descricao: z
@@ -93,7 +92,6 @@ const projetoSchema = z.object({
 
 type ProjetoFormValues = z.infer<typeof projetoSchema>;
 
-// Opções para os selects
 const areasConhecimento = [
   "Biotecnologia",
   "Saúde",
@@ -153,7 +151,6 @@ export default function EditProjetoPage() {
   const possuiOrcamento = form.watch("possuiOrcamento");
   const emailsParticipantes = form.watch("emailsParticipantes") || [];
 
-  // Carregar dados do projeto
   useEffect(() => {
     const projeto = projetos.find((p) => p.id.toString() === projetoId);
     if (projeto) {
@@ -181,7 +178,6 @@ export default function EditProjetoPage() {
     }
   }, [projetoId, projetos, form]);
 
-  // Adicionar participante
   const handleAddParticipante = () => {
     if (emailParticipante && !emailsParticipantes.includes(emailParticipante)) {
       form.setValue("emailsParticipantes", [
@@ -192,7 +188,6 @@ export default function EditProjetoPage() {
     }
   };
 
-  // Remover participante
   const handleRemoveParticipante = (email: string) => {
     form.setValue(
       "emailsParticipantes",
@@ -200,7 +195,6 @@ export default function EditProjetoPage() {
     );
   };
 
-  // Submit do formulário
   async function onSubmit(values: ProjetoFormValues) {
     setIsSubmitting(true);
 

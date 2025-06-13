@@ -1,4 +1,3 @@
-// src/app/(dashboard)/eventos/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -80,7 +79,6 @@ export default function EventosPage() {
     fetchEventos();
   }, []);
 
-  // Filtrar eventos
   const filteredEventos = eventos.filter((evento) => {
     const matchesSearch =
       evento.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -89,7 +87,6 @@ export default function EventosPage() {
     const matchesCurso =
       cursoFilter === "todos" || evento.curso.includes(cursoFilter);
 
-    // Filtro por período
     const today = new Date();
     let matchesPeriodo = true;
 
@@ -106,7 +103,6 @@ export default function EventosPage() {
     return matchesSearch && matchesCurso && matchesPeriodo;
   });
 
-  // Obter status do evento baseado nas datas
   const getEventoStatus = (dataInicio: string, dataTermino: string) => {
     const today = new Date();
     const inicio = new Date(dataInicio);
@@ -122,7 +118,6 @@ export default function EventosPage() {
     return { label: "Indefinido", variant: "secondary" as const };
   };
 
-  // Deletar evento
   const handleDeleteEvento = async (id: number, titulo: string) => {
     try {
       await deleteEvento(id);
@@ -132,7 +127,6 @@ export default function EventosPage() {
     }
   };
 
-  // Cursos únicos
   const cursosDisponiveis = [...new Set(eventos.map((e) => e.curso))];
 
   if (loading) {
