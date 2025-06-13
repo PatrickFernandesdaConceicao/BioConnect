@@ -13,10 +13,13 @@ import {
   Users,
   Settings,
   LogOut,
+  Shield,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useTheme } from "@/components/theme-provider"; // Import custom useTheme hook
-import { ThemeProvider } from "@/components/theme-provider";
+import { Badge } from "@/components/ui/badge";
+import { useTheme } from "@/components/theme-provider";
+import { logout } from "@/lib/auth";
+import { toast } from "sonner";
 
 const routes = [
   {
@@ -24,75 +27,98 @@ const routes = [
     icon: LayoutDashboard,
     href: "/dashboard",
     color: "text-sky-500",
+    roles: ["USER", "ADMIN"],
   },
   {
     label: "Projetos",
     icon: FileText,
     href: "/projetos",
     color: "text-violet-500",
+    roles: ["USER", "ADMIN"],
   },
   {
     label: "Eventos",
     icon: Calendar,
     href: "/eventos",
     color: "text-pink-700",
+    roles: ["USER", "ADMIN"],
   },
   {
     label: "Monitorias",
     icon: BookOpen,
     href: "/monitorias",
     color: "text-orange-500",
+    roles: ["USER", "ADMIN"],
   },
   {
     label: "Relatórios",
     icon: BarChart,
     href: "/relatorios",
     color: "text-emerald-500",
+    roles: ["USER", "ADMIN"],
   },
 ];
 
-// Rotas administrativas que só são mostradas para Admin e Coordenadores
 const adminRoutes = [
   {
     label: "Usuários",
     icon: Users,
     href: "/usuarios",
     color: "text-blue-500",
+    roles: ["ADMIN"],
   },
   {
     label: "Configurações",
     icon: Settings,
     href: "/configuracoes",
     color: "text-gray-500",
+    roles: ["ADMIN"],
   },
 ];
 
 interface SidebarProps {
-  userRole?: "ADMIN" | "COORDENADOR" | "PROFESSOR" | "ALUNO";
+  userRole?: "ADMIN" | "USER";
   userName?: string;
   userImage?: string;
 }
 
 export const Sidebar = ({
-  userRole = "PROFESSOR",
+  userRole = "USER",
   userName = "Usuário",
   userImage,
 }: SidebarProps) => {
   const pathname = usePathname();
-  const { theme } = useTheme(); // Get current theme from custom provider
+  const { theme } = useTheme();
 
-  // Determine if dark mode is active based on theme value
   const isDarkMode = theme === "dark";
-  const isAdmin = userRole === "ADMIN" || userRole === "COORDENADOR";
+  const isAdmin = userRole === "ADMIN";
+
+  const handleLogout = () => {
+    try {
+      logout();
+      toast.success("Logout realizado com sucesso!");
+    } catch (error) {
+      console.error("Erro no logout:", error);
+      toast.error("Erro ao fazer logout");
+    }
+  };
+
+  const visibleRoutes = routes.filter((route) =>
+    route.roles.includes(userRole)
+  );
+  const visibleAdminRoutes = adminRoutes.filter((route) =>
+    route.roles.includes(userRole)
+  );
 
   return (
     <div
       className={cn(
         "space-y-4 py-4 flex flex-col h-full border-r-2",
-        isDarkMode ? "bg-background text-white" : "bg-white text-slate-900 "
+        isDarkMode ? "bg-background text-white" : "bg-white text-slate-900"
       )}
     >
       <div className="px-3 py-2 flex-1">
+        {/* Logo */}
         <div className="flex items-center justify-between pl-3 mb-8">
           <Link href="/dashboard" className="flex items-center">
             <div className="relative w-8 h-8 mr-4">
@@ -115,21 +141,17 @@ export const Sidebar = ({
             </div>
             <h1 className="text-2xl font-bold">BioConnect</h1>
           </Link>
-          <ThemeProvider
-            children=""
-            attribute="class"
-            defaultTheme="light"
-            enableSystem
-          />
         </div>
+
+        {/* Menu Principal */}
         <div className="space-y-1">
-          {routes.map((route) => (
+          {visibleRoutes.map((route) => (
             <Link
               key={route.href}
               href={route.href}
               className={cn(
                 "text-sm group flex p-3 w-full justify-start font-medium cursor-pointer rounded-lg transition",
-                pathname === route.href
+                pathname === route.href || pathname.startsWith(route.href + "/")
                   ? isDarkMode
                     ? "bg-white/10 text-white"
                     : "bg-slate-100 text-slate-900"
@@ -144,26 +166,33 @@ export const Sidebar = ({
               </div>
             </Link>
           ))}
+        </div>
 
-          {isAdmin && (
-            <>
-              <div
-                className={cn(
-                  "mt-6 mb-2 px-3",
-                  isDarkMode ? "text-zinc-400" : "text-slate-500"
-                )}
-              >
+        {/* Menu Administrativo */}
+        {isAdmin && visibleAdminRoutes.length > 0 && (
+          <>
+            <div
+              className={cn(
+                "mt-6 mb-2 px-3",
+                isDarkMode ? "text-zinc-400" : "text-slate-500"
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <Shield className="h-3 w-3" />
                 <h2 className="text-xs uppercase font-semibold">
                   Administração
                 </h2>
               </div>
-              {adminRoutes.map((route) => (
+            </div>
+            <div className="space-y-1">
+              {visibleAdminRoutes.map((route) => (
                 <Link
                   key={route.href}
                   href={route.href}
                   className={cn(
                     "text-sm group flex p-3 w-full justify-start font-medium cursor-pointer rounded-lg transition",
-                    pathname === route.href
+                    pathname === route.href ||
+                      pathname.startsWith(route.href + "/")
                       ? isDarkMode
                         ? "bg-white/10 text-white"
                         : "bg-slate-100 text-slate-900"
@@ -178,44 +207,61 @@ export const Sidebar = ({
                   </div>
                 </Link>
               ))}
-            </>
-          )}
-        </div>
-      </div>
-      <div
-        className={cn(
-          "px-3 py-2 border-t",
-          isDarkMode ? "border-gray-800" : "border-slate-200"
+            </div>
+          </>
         )}
-      >
-        <div className="flex items-center gap-x-4 pl-3 py-2">
-          <Avatar>
-            <AvatarImage src={userImage} />
-            <AvatarFallback className="bg-sky-500">
-              {userName.substring(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">{userName}</span>
-            <span
-              className={
-                isDarkMode ? "text-xs text-zinc-400" : "text-xs text-slate-500"
-              }
-            >
-              {userRole}
-            </span>
+      </div>
+
+      {/* Footer com informações do usuário */}
+      <div className="px-3 py-2">
+        <div className="bg-muted/50 rounded-lg p-3 space-y-3">
+          {/* Informações do usuário */}
+          <div className="flex items-center gap-3">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={userImage} alt={userName} />
+              <AvatarFallback>
+                {userName
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{userName}</p>
+              <div className="flex items-center gap-1">
+                <Badge
+                  variant={isAdmin ? "default" : "secondary"}
+                  className={cn(
+                    "text-xs",
+                    isAdmin
+                      ? "bg-red-100 text-red-800 border-red-200"
+                      : "bg-blue-100 text-blue-800 border-blue-200"
+                  )}
+                >
+                  {isAdmin ? (
+                    <>
+                      <Shield className="mr-1 h-2 w-2" />
+                      Admin
+                    </>
+                  ) : (
+                    "Professor"
+                  )}
+                </Badge>
+              </div>
+            </div>
           </div>
+
+          {/* Botão de logout */}
           <Button
+            onClick={handleLogout}
             variant="ghost"
-            size="icon"
-            className={cn(
-              "ml-auto",
-              isDarkMode
-                ? "text-zinc-400 hover:text-white"
-                : "text-slate-500 hover:text-slate-900"
-            )}
+            size="sm"
+            className="w-full justify-start h-8"
           >
-            <LogOut className="h-5 w-5" />
+            <LogOut className="mr-2 h-4 w-4" />
+            Sair
           </Button>
         </div>
       </div>
