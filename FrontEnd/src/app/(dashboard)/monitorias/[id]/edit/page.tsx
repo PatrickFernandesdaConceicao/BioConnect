@@ -1,6 +1,7 @@
-// src/app/(dashboard)/monitorias/new/page.tsx
+// src/app/(dashboard)/monitorias/[id]/edit/page.tsx
 "use client";
 
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -47,32 +48,33 @@ import {
   GraduationCap,
   Book,
   School,
-  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
 // Schema de validação
 const monitoriaSchema = z.object({
-  disciplinaId: z.number().min(1, "Selecione uma disciplina"),
-  cursoId: z.number().min(1, "Selecione um curso"),
-  semestre: z.string().min(1, "Selecione o semestre"),
-  cargaHoraria: z.number().min(1, "A carga horária deve ser maior que 0"),
-  dataInicio: z.string().min(1, "A data de início é obrigatória"),
-  dataTermino: z.string().min(1, "A data de término é obrigatória"),
+  disciplinaId: z.number({ required_error: "Selecione uma disciplina" }),
+  cursoId: z.number({ required_error: "Selecione um curso" }),
+  semestre: z.string({ required_error: "Selecione o semestre" }),
+  cargaHoraria: z.number().min(1, { message: "A carga horária é obrigatória" }),
+  dataInicio: z.string({ required_error: "A data de início é obrigatória" }),
+  dataTermino: z.string({ required_error: "A data de término é obrigatória" }),
   diasSemana: z
     .array(z.string())
-    .min(1, "Selecione pelo menos um dia da semana"),
-  horarioInicio: z.string().min(1, "O horário de início é obrigatório"),
-  horarioTermino: z.string().min(1, "O horário de término é obrigatório"),
+    .min(1, { message: "Selecione pelo menos um dia da semana" }),
+  horarioInicio: z.string({
+    required_error: "O horário de início é obrigatório",
+  }),
+  horarioTermino: z.string({
+    required_error: "O horário de término é obrigatório",
+  }),
   sala: z.string().optional(),
-  bolsa: z.boolean(),
+  bolsa: z.boolean().default(false),
   valorBolsa: z.number().optional(),
   requisitos: z.string().optional(),
   atividades: z.string().optional(),
   alunoPreSelecionado: z.string().optional(),
-  termosAceitos: z
-    .boolean()
-    .refine((val) => val === true, "Você deve aceitar os termos"),
+  termosAceitos: z.boolean(),
 });
 
 type MonitoriaFormValues = z.infer<typeof monitoriaSchema>;
@@ -89,46 +91,21 @@ const diasSemana = [
 
 const semestres = ["2024/1", "2024/2", "2025/1", "2025/2", "2026/1", "2026/2"];
 
-// Dados mock enquanto não carrega do backend
-const mockDisciplinas = [
-  {
-    id: 1,
-    nome: "Algoritmos e Estruturas de Dados",
-    codigo: "AED001",
-    cargaHoraria: 80,
-  },
-  { id: 2, nome: "Cálculo I", codigo: "MAT001", cargaHoraria: 80 },
-  { id: 3, nome: "Bioquímica Celular", codigo: "BIO001", cargaHoraria: 60 },
-  { id: 4, nome: "Anatomia Humana", codigo: "MED001", cargaHoraria: 100 },
-  { id: 5, nome: "Programação Web", codigo: "INF001", cargaHoraria: 80 },
-  { id: 6, nome: "Microbiologia", codigo: "BIO002", cargaHoraria: 60 },
-  { id: 7, nome: "Estatística", codigo: "MAT002", cargaHoraria: 60 },
-  { id: 8, nome: "Química Orgânica", codigo: "QUI001", cargaHoraria: 80 },
-];
-
-const mockCursos = [
-  {
-    id: 1,
-    nome: "Análise e Desenvolvimento de Sistemas",
-    codigo: "ADS",
-    tipo: "Tecnólogo",
-  },
-  { id: 2, nome: "Engenharia de Software", codigo: "ES", tipo: "Bacharelado" },
-  { id: 3, nome: "Biotecnologia", codigo: "BT", tipo: "Bacharelado" },
-  { id: 4, nome: "Enfermagem", codigo: "ENF", tipo: "Bacharelado" },
-  { id: 5, nome: "Engenharia Biomédica", codigo: "EBM", tipo: "Bacharelado" },
-];
-
-export default function NewMonitoriaPage() {
+export default function EditMonitoriaPage() {
+  const params = useParams();
   const router = useRouter();
-  const { createMonitoria } = useMonitorias();
+  const { monitorias, updateMonitoria } = useMonitorias();
   const { disciplinas, cursos, fetchMasterData } = useMasterData();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("basicas");
+  const [isLoading, setIsLoading] = useState(true);
+
+  const monitoriaId = params.id as string;
 
   const form = useForm<MonitoriaFormValues>({
     resolver: zodResolver(monitoriaSchema),
+    mode: "onChange",
     defaultValues: {
       disciplinaId: 0,
       cursoId: 0,
@@ -154,12 +131,33 @@ export default function NewMonitoriaPage() {
 
   useEffect(() => {
     fetchMasterData();
-  }, [fetchMasterData]);
+  }, []);
 
-  // Usar dados mock se não carregou do backend
-  const disciplinasDisponiveis =
-    disciplinas.length > 0 ? disciplinas : mockDisciplinas;
-  const cursosDisponiveis = cursos.length > 0 ? cursos : mockCursos;
+  // Carregar dados da monitoria
+  useEffect(() => {
+    const monitoria = monitorias.find((m) => m.id.toString() === monitoriaId);
+    if (monitoria) {
+      form.reset({
+        disciplinaId: monitoria.disciplinaId,
+        cursoId: monitoria.cursoId,
+        semestre: monitoria.semestre,
+        cargaHoraria: monitoria.cargaHoraria,
+        dataInicio: monitoria.dataInicio,
+        dataTermino: monitoria.dataTermino,
+        diasSemana: monitoria.diasSemana,
+        horarioInicio: monitoria.horarioInicio,
+        horarioTermino: monitoria.horarioTermino,
+        sala: monitoria.sala || "",
+        bolsa: monitoria.bolsa,
+        valorBolsa: monitoria.valorBolsa || 0,
+        requisitos: monitoria.requisitos || "",
+        atividades: monitoria.atividades || "",
+        alunoPreSelecionado: monitoria.alunoPreSelecionado || "",
+        termosAceitos: monitoria.termosAceitos,
+      });
+      setIsLoading(false);
+    }
+  }, [monitoriaId, monitorias, form]);
 
   // Alternar seleção de dia da semana
   const toggleDiaSemana = (dia: string) => {
@@ -175,20 +173,32 @@ export default function NewMonitoriaPage() {
     setIsSubmitting(true);
 
     try {
-      const monitoriaData: MonitoriaData = {
+      const monitoriaData: Partial<MonitoriaData> = {
         ...values,
         valorBolsa: values.bolsa ? values.valorBolsa : undefined,
       };
 
-      await createMonitoria(monitoriaData);
-      toast.success("Monitoria criada com sucesso!");
+      await updateMonitoria(parseInt(monitoriaId), monitoriaData);
+      toast.success("Monitoria atualizada com sucesso!");
       router.push("/monitorias");
     } catch (error) {
-      console.error("Erro ao criar monitoria:", error);
-      toast.error("Erro ao criar monitoria. Tente novamente.");
+      toast.error("Erro ao atualizar monitoria");
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-sm text-muted-foreground">
+            Carregando monitoria...
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -201,25 +211,12 @@ export default function NewMonitoriaPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold">Nova Monitoria</h1>
+          <h1 className="text-3xl font-bold">Editar Monitoria</h1>
           <p className="text-muted-foreground">
-            Crie uma nova oportunidade de monitoria
+            Atualize as informações da monitoria
           </p>
         </div>
       </div>
-
-      {/* Aviso sobre dados mock */}
-      {disciplinasDisponiveis === mockDisciplinas && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <AlertCircle className="h-4 w-4 text-yellow-600 mr-2" />
-            <p className="text-yellow-800 text-sm">
-              Usando dados de exemplo. Configure as disciplinas e cursos no
-              sistema para opções reais.
-            </p>
-          </div>
-        </div>
-      )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -231,7 +228,7 @@ export default function NewMonitoriaPage() {
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="basicas">
                 <Book className="mr-2 h-4 w-4" />
-                Básicas
+                Informações Básicas
               </TabsTrigger>
               <TabsTrigger value="horarios">
                 <Clock className="mr-2 h-4 w-4" />
@@ -259,12 +256,12 @@ export default function NewMonitoriaPage() {
                       name="disciplinaId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Disciplina *</FormLabel>
+                          <FormLabel>Disciplina</FormLabel>
                           <Select
                             onValueChange={(value) =>
                               field.onChange(parseInt(value))
                             }
-                            value={field.value ? field.value.toString() : ""}
+                            value={field.value.toString()}
                           >
                             <FormControl>
                               <SelectTrigger>
@@ -272,12 +269,12 @@ export default function NewMonitoriaPage() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {disciplinasDisponiveis.map((disciplina) => (
+                              {disciplinas.map((disciplina) => (
                                 <SelectItem
                                   key={disciplina.id}
                                   value={disciplina.id.toString()}
                                 >
-                                  {disciplina.nome} ({disciplina.codigo})
+                                  {disciplina.nome}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -292,12 +289,12 @@ export default function NewMonitoriaPage() {
                       name="cursoId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Curso *</FormLabel>
+                          <FormLabel>Curso</FormLabel>
                           <Select
                             onValueChange={(value) =>
                               field.onChange(parseInt(value))
                             }
-                            value={field.value ? field.value.toString() : ""}
+                            value={field.value.toString()}
                           >
                             <FormControl>
                               <SelectTrigger>
@@ -305,7 +302,7 @@ export default function NewMonitoriaPage() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {cursosDisponiveis.map((curso) => (
+                              {cursos.map((curso) => (
                                 <SelectItem
                                   key={curso.id}
                                   value={curso.id.toString()}
@@ -325,7 +322,7 @@ export default function NewMonitoriaPage() {
                       name="semestre"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Semestre *</FormLabel>
+                          <FormLabel>Semestre</FormLabel>
                           <Select
                             onValueChange={field.onChange}
                             value={field.value}
@@ -353,12 +350,11 @@ export default function NewMonitoriaPage() {
                       name="cargaHoraria"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Carga Horária (horas) *</FormLabel>
+                          <FormLabel>Carga Horária (horas)</FormLabel>
                           <FormControl>
                             <Input
                               type="number"
                               min="1"
-                              placeholder="Ex: 60"
                               {...field}
                               onChange={(e) =>
                                 field.onChange(parseInt(e.target.value) || 0)
@@ -375,7 +371,7 @@ export default function NewMonitoriaPage() {
                       name="dataInicio"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Data de Início *</FormLabel>
+                          <FormLabel>Data de Início</FormLabel>
                           <FormControl>
                             <Input type="date" {...field} />
                           </FormControl>
@@ -389,7 +385,7 @@ export default function NewMonitoriaPage() {
                       name="dataTermino"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Data de Término *</FormLabel>
+                          <FormLabel>Data de Término</FormLabel>
                           <FormControl>
                             <Input type="date" {...field} />
                           </FormControl>
@@ -413,7 +409,7 @@ export default function NewMonitoriaPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <FormLabel>Dias da Semana *</FormLabel>
+                    <FormLabel>Dias da Semana</FormLabel>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
                       {diasSemana.map((dia) => (
                         <div
@@ -447,7 +443,7 @@ export default function NewMonitoriaPage() {
                       name="horarioInicio"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Horário de Início *</FormLabel>
+                          <FormLabel>Horário de Início</FormLabel>
                           <FormControl>
                             <Input type="time" {...field} />
                           </FormControl>
@@ -461,7 +457,7 @@ export default function NewMonitoriaPage() {
                       name="horarioTermino"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Horário de Término *</FormLabel>
+                          <FormLabel>Horário de Término</FormLabel>
                           <FormControl>
                             <Input type="time" {...field} />
                           </FormControl>
@@ -557,15 +553,11 @@ export default function NewMonitoriaPage() {
                         <FormLabel>Requisitos (Opcional)</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Ex: Ter cursado a disciplina com aproveitamento mínimo de 8.0, conhecimentos em..."
+                            placeholder="Descreva os requisitos para a monitoria"
                             className="min-h-[100px]"
                             {...field}
                           />
                         </FormControl>
-                        <FormDescription>
-                          Descreva os requisitos necessários para participar da
-                          monitoria
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -579,15 +571,11 @@ export default function NewMonitoriaPage() {
                         <FormLabel>Atividades (Opcional)</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Ex: Auxiliar nas aulas práticas, tirar dúvidas dos alunos, preparar material..."
+                            placeholder="Descreva as atividades da monitoria"
                             className="min-h-[100px]"
                             {...field}
                           />
                         </FormControl>
-                        <FormDescription>
-                          Descreva as principais atividades que o monitor irá
-                          desenvolver
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -601,7 +589,7 @@ export default function NewMonitoriaPage() {
                         <FormLabel>Aluno Pré-selecionado (Opcional)</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="Nome completo do aluno"
+                            placeholder="Nome do aluno pré-selecionado"
                             {...field}
                           />
                         </FormControl>
@@ -633,11 +621,10 @@ export default function NewMonitoriaPage() {
                         />
                       </FormControl>
                       <div className="space-y-1 leading-none">
-                        <FormLabel>Aceito os termos e condições *</FormLabel>
+                        <FormLabel>Aceito os termos e condições</FormLabel>
                         <FormDescription>
                           Estou ciente das responsabilidades da monitoria e
-                          aceito os termos do programa de monitoria da
-                          instituição.
+                          aceito os termos do programa.
                         </FormDescription>
                         <FormMessage />
                       </div>
@@ -656,12 +643,12 @@ export default function NewMonitoriaPage() {
                     {isSubmitting ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Criando...
+                        Atualizando...
                       </>
                     ) : (
                       <>
                         <Save className="mr-2 h-4 w-4" />
-                        Criar Monitoria
+                        Atualizar Monitoria
                       </>
                     )}
                   </Button>

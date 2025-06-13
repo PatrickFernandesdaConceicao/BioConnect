@@ -1,3 +1,4 @@
+// src/app/(dashboard)/eventos/new/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -6,7 +7,9 @@ import Link from "next/link";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-// import EventoService from "../../../services/api";
+import { useEventos } from "@/contexts/AppContext";
+import { useAuth } from "@/lib/auth";
+import { EventoData } from "@/services/api";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +23,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
 import {
   Card,
   CardContent,
@@ -34,117 +36,133 @@ import {
   Save,
   Calendar,
   MapPin,
-  User,
+  Users,
   Plus,
-  Trash2,
+  X,
+  Shield,
+  AlertCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 
 const eventoSchema = z.object({
-  titulo: z
-    .string()
-    .min(5, { message: "O título deve ter pelo menos 5 caracteres" }),
-  curso: z.string().optional(),
-  dataInicio: z.string({ required_error: "A data de início é obrigatória" }),
-  dataTermino: z.string({ required_error: "A data de término é obrigatória" }),
-  local: z
-    .string()
-    .min(3, { message: "O local deve ter pelo menos 3 caracteres" }),
+  titulo: z.string().min(5, "O título deve ter pelo menos 5 caracteres"),
+  curso: z.string().min(1, "O curso é obrigatório"),
+  dataInicio: z.string().min(1, "A data de início é obrigatória"),
+  dataTermino: z.string().min(1, "A data de término é obrigatória"),
+  local: z.string().min(3, "O local deve ter pelo menos 3 caracteres"),
   justificativa: z
     .string()
-    .min(20, { message: "A justificativa deve ter pelo menos 20 caracteres" }),
-  vlTotalSolicitado: z
-    .string()
-    .min(1)
-    .refine((val) => parseFloat(val) >= 0, {
-      message: "O valor não pode ser negativo",
-    }),
-  vlTotalAprovado: z
-    .string()
-    .min(1)
-    .refine((val) => parseFloat(val) >= 0, {
-      message: "O valor não pode ser negativo",
-    }),
-  participantes: z
-    .array(
-      z.object({
-        nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-        email: z.string().email("Email inválido"),
-      })
-    )
-    .optional(),
+    .min(20, "A justificativa deve ter pelo menos 20 caracteres"),
+  vlTotalSolicitado: z.number().min(0, "O valor não pode ser negativo"),
+  vlTotalAprovado: z.number().min(0, "O valor não pode ser negativo"),
 });
 
 type EventoFormValues = z.infer<typeof eventoSchema>;
 
+const cursosDisponiveis = [
+  "Análise e Desenvolvimento de Sistemas",
+  "Engenharia de Software",
+  "Biotecnologia",
+  "Enfermagem",
+  "Engenharia Biomédica",
+  "Ciências Biológicas",
+  "Administração",
+  "Todos os Cursos",
+];
+
 export default function NewEventoPage() {
   const router = useRouter();
+  const { hasPermission } = useAuth();
+  const { createEvento } = useEventos();
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("info");
   const [participantes, setParticipantes] = useState<
-    { nome: string; email: string }[]
+    Array<{ nome: string; email: string }>
   >([]);
-  const [novoParticipante, setNovoParticipante] = useState({
-    nome: "",
-    email: "",
-  });
+  const [nomeParticipante, setNomeParticipante] = useState("");
+  const [emailParticipante, setEmailParticipante] = useState("");
 
-  const defaultValues: Partial<EventoFormValues> = {
-    titulo: "",
-    curso: "",
-    dataInicio: "",
-    dataTermino: "",
-    local: "",
-    justificativa: "",
-    vlTotalSolicitado: "0",
-    vlTotalAprovado: "0",
-    participantes: [],
-  };
+  // Verificar se é admin
+  if (!hasPermission("ADMIN")) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Shield className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Acesso Restrito</h3>
+          <p className="text-muted-foreground mb-4">
+            Apenas administradores podem criar eventos.
+          </p>
+          <Link href="/eventos">
+            <Button>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Voltar para Eventos
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const form = useForm<EventoFormValues>({
     resolver: zodResolver(eventoSchema),
-    defaultValues,
+    defaultValues: {
+      titulo: "",
+      curso: "",
+      dataInicio: "",
+      dataTermino: "",
+      local: "",
+      justificativa: "",
+      vlTotalSolicitado: 0,
+      vlTotalAprovado: 0,
+    },
   });
 
-  const adicionarParticipante = () => {
-    if (novoParticipante.nome && novoParticipante.email) {
-      setParticipantes([...participantes, novoParticipante]);
-      setNovoParticipante({ nome: "", email: "" });
+  // Adicionar participante
+  const handleAddParticipante = () => {
+    if (nomeParticipante && emailParticipante) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailParticipante)) {
+        toast.error("Email inválido");
+        return;
+      }
+
+      const jaExiste = participantes.some((p) => p.email === emailParticipante);
+      if (jaExiste) {
+        toast.error("Participante já adicionado");
+        return;
+      }
+
+      setParticipantes([
+        ...participantes,
+        { nome: nomeParticipante, email: emailParticipante },
+      ]);
+      setNomeParticipante("");
+      setEmailParticipante("");
     }
   };
 
-  const removerParticipante = (index: number) => {
-    setParticipantes(participantes.filter((_, i) => i !== index));
+  // Remover participante
+  const handleRemoveParticipante = (email: string) => {
+    setParticipantes(participantes.filter((p) => p.email !== email));
   };
 
+  // Submit do formulário
   async function onSubmit(values: EventoFormValues) {
     setIsSubmitting(true);
 
     try {
-      const dataInicio = new Date(values.dataInicio);
-      const dataTermino = new Date(values.dataTermino);
-
-      if (dataTermino <= dataInicio) {
-        toast.error("A data de término deve ser posterior à data de início.");
-        setIsSubmitting(false);
-        return;
-      }
-
-      const eventData = {
+      const eventoData: EventoData = {
         ...values,
-        vlTotalSolicitado: parseFloat(values.vlTotalSolicitado),
-        vlTotalAprovado: parseFloat(values.vlTotalAprovado),
-        participantes,
+        participantes: participantes,
       };
 
-      const response = await EventoService.criarEvento(eventData);
-
-      toast.success(`Evento "${response.titulo}" criado com sucesso!`);
+      await createEvento(eventoData);
+      toast.success("Evento criado com sucesso!");
       router.push("/eventos");
     } catch (error) {
-      console.error(error);
-      toast.error(
-        "Erro ao cadastrar evento. Verifique os dados e tente novamente."
-      );
+      console.error("Erro ao criar evento:", error);
+      toast.error("Erro ao criar evento. Tente novamente.");
     } finally {
       setIsSubmitting(false);
     }
@@ -152,44 +170,69 @@ export default function NewEventoPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      {/* Header */}
+      <div className="flex items-center gap-4">
         <Link href="/eventos">
           <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
-        <h1 className="text-3xl font-bold">Novo Evento</h1>
+        <div>
+          <h1 className="text-3xl font-bold">Novo Evento</h1>
+          <p className="text-muted-foreground">Crie um novo evento acadêmico</p>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Cadastro de Evento</CardTitle>
-          <CardDescription>
-            Preencha os dados do evento institucional.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-2 w-full">
-              <TabsTrigger value="info">Informações</TabsTrigger>
-              <TabsTrigger value="participants">Participantes</TabsTrigger>
+      {/* Aviso Admin */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-center">
+          <Shield className="h-4 w-4 text-blue-600 mr-2" />
+          <p className="text-blue-800 text-sm">
+            <strong>Área Administrativa:</strong> Apenas administradores podem
+            criar e gerenciar eventos.
+          </p>
+        </div>
+      </div>
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="space-y-4"
+          >
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="info">
+                <Calendar className="mr-2 h-4 w-4" />
+                Informações
+              </TabsTrigger>
+              <TabsTrigger value="financeiro">
+                <MapPin className="mr-2 h-4 w-4" />
+                Financeiro
+              </TabsTrigger>
+              <TabsTrigger value="participantes">
+                <Users className="mr-2 h-4 w-4" />
+                Participantes
+              </TabsTrigger>
             </TabsList>
 
-            <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-8 mt-4"
-              >
-                <TabsContent value="info" className="space-y-4">
+            {/* Tab: Informações */}
+            <TabsContent value="info">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Informações do Evento</CardTitle>
+                  <CardDescription>Dados básicos do evento</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <FormField
                     control={form.control}
                     name="titulo"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Título *</FormLabel>
+                        <FormLabel>Título do Evento *</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="Ex: Simpósio de Robótica"
+                            placeholder="Digite o título do evento"
                             {...field}
                           />
                         </FormControl>
@@ -198,21 +241,50 @@ export default function NewEventoPage() {
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="curso"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Curso</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ex: Engenharia" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="curso"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Curso *</FormLabel>
+                          <FormControl>
+                            <select
+                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                              {...field}
+                            >
+                              <option value="">Selecione o curso</option>
+                              {cursosDisponiveis.map((curso) => (
+                                <option key={curso} value={curso}>
+                                  {curso}
+                                </option>
+                              ))}
+                            </select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <div className="grid md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="local"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Local *</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Ex: Auditório Principal, Lab 01"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="dataInicio"
@@ -244,50 +316,60 @@ export default function NewEventoPage() {
 
                   <FormField
                     control={form.control}
-                    name="local"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Local *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ex: Auditório 1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
                     name="justificativa"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Justificativa *</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Descreva a justificativa"
+                            placeholder="Descreva a justificativa e objetivos do evento"
+                            className="min-h-[120px]"
                             {...field}
                           />
                         </FormControl>
+                        <FormDescription>
+                          Mínimo de 20 caracteres
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                  <div className="grid md:grid-cols-2 gap-4">
+            {/* Tab: Financeiro */}
+            <TabsContent value="financeiro">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Informações Financeiras</CardTitle>
+                  <CardDescription>
+                    Orçamento solicitado e aprovado
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="vlTotalSolicitado"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Valor Solicitado *</FormLabel>
+                          <FormLabel>Valor Total Solicitado (R$) *</FormLabel>
                           <FormControl>
                             <Input
                               type="number"
-                              min="0"
                               step="0.01"
+                              min="0"
+                              placeholder="0,00"
                               {...field}
+                              onChange={(e) =>
+                                field.onChange(parseFloat(e.target.value) || 0)
+                              }
                             />
                           </FormControl>
+                          <FormDescription>
+                            Valor total solicitado para o evento
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -298,84 +380,163 @@ export default function NewEventoPage() {
                       name="vlTotalAprovado"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Valor Aprovado *</FormLabel>
+                          <FormLabel>Valor Total Aprovado (R$) *</FormLabel>
                           <FormControl>
                             <Input
                               type="number"
-                              min="0"
                               step="0.01"
+                              min="0"
+                              placeholder="0,00"
                               {...field}
+                              onChange={(e) =>
+                                field.onChange(parseFloat(e.target.value) || 0)
+                              }
                             />
                           </FormControl>
+                          <FormDescription>
+                            Valor aprovado pela administração
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
-                </TabsContent>
 
-                <TabsContent value="participants" className="space-y-4">
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      placeholder="Nome"
-                      value={novoParticipante.nome}
-                      onChange={(e) =>
-                        setNovoParticipante({
-                          ...novoParticipante,
-                          nome: e.target.value,
-                        })
-                      }
-                    />
-                    <Input
-                      placeholder="Email"
-                      value={novoParticipante.email}
-                      onChange={(e) =>
-                        setNovoParticipante({
-                          ...novoParticipante,
-                          email: e.target.value,
-                        })
-                      }
-                    />
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <AlertCircle className="h-4 w-4 text-yellow-600 mr-2" />
+                      <div>
+                        <p className="text-yellow-800 text-sm font-medium">
+                          Informação sobre Orçamento
+                        </p>
+                        <p className="text-yellow-700 text-sm">
+                          O valor aprovado pode ser igual ou menor que o
+                          solicitado, dependendo da disponibilidade
+                          orçamentária.
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <Button
-                    type="button"
-                    onClick={adicionarParticipante}
-                    className="mt-2"
-                  >
-                    <Plus className="w-4 h-4 mr-2" /> Adicionar Participante
-                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                  <ul className="mt-4 space-y-2">
-                    {participantes.map((p, idx) => (
-                      <li
-                        key={idx}
-                        className="flex items-center justify-between border p-2 rounded"
+            {/* Tab: Participantes */}
+            <TabsContent value="participantes">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Participantes do Evento</CardTitle>
+                  <CardDescription>
+                    Adicione os participantes do evento
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <FormLabel>Adicionar Participante</FormLabel>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <Input
+                        placeholder="Nome completo"
+                        value={nomeParticipante}
+                        onChange={(e) => setNomeParticipante(e.target.value)}
+                      />
+                      <Input
+                        type="email"
+                        placeholder="email@exemplo.com"
+                        value={emailParticipante}
+                        onChange={(e) => setEmailParticipante(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddParticipante();
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        onClick={handleAddParticipante}
+                        disabled={!nomeParticipante || !emailParticipante}
                       >
-                        <span>
-                          {p.nome} - {p.email}
-                        </span>
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          onClick={() => removerParticipante(idx)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                </TabsContent>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Adicionar
+                      </Button>
+                    </div>
+                  </div>
 
-                <div className="flex justify-end">
-                  <Button type="submit" disabled={isSubmitting}>
-                    <Save className="w-4 h-4 mr-2" /> Salvar Evento
-                  </Button>
-                </div>
-              </form>
-            </Form>
+                  {participantes.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">
+                        Participantes adicionados ({participantes.length}):
+                      </p>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {participantes.map((participante, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between bg-muted p-3 rounded"
+                          >
+                            <div>
+                              <p className="text-sm font-medium">
+                                {participante.nome}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {participante.email}
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleRemoveParticipante(participante.email)
+                              }
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="text-sm text-muted-foreground">
+                    <p>
+                      <strong>Dica:</strong> Os participantes podem ser
+                      adicionados agora ou editados posteriormente através da
+                      página de edição do evento.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
-        </CardContent>
-      </Card>
+
+          {/* Ações */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex justify-between">
+                <Link href="/eventos">
+                  <Button variant="outline" disabled={isSubmitting}>
+                    Cancelar
+                  </Button>
+                </Link>
+
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Criando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Criar Evento
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </form>
+      </Form>
     </div>
   );
 }

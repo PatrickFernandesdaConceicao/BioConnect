@@ -1,32 +1,29 @@
-// app/(dashboard)/eventos/page.tsx
+// src/app/(dashboard)/eventos/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Plus,
-  Search,
-  Calendar,
-  MoreVertical,
-  MapPin,
-  Users,
-  Clock,
-  CheckCircle,
-  XCircle,
-  CalendarDays,
-  Filter,
-} from "lucide-react";
+import { useEventos } from "@/contexts/AppContext";
+import { useAuth } from "@/lib/auth";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,461 +33,455 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-// Dados fictícios de eventos para demonstração
-const mockEvents = [
-  {
-    id: "1",
-    title: "Simpósio de Biotecnologia",
-    description:
-      "Apresentações e discussões sobre os avanços recentes em biotecnologia aplicada à saúde e agricultura.",
-    location: "Auditório Principal - Bloco A",
-    status: "EM_ANDAMENTO",
-    startDate: "2025-04-30T09:00:00",
-    endDate: "2025-04-30T17:00:00",
-    createdBy: "Prof. Ana Silva",
-    participantsCount: 45,
-    maxParticipants: 60,
-  },
-  {
-    id: "2",
-    title: "Workshop de IA em Saúde",
-    description:
-      "Workshop prático sobre implementação de soluções de IA para diagnósticos médicos.",
-    location: "Laboratório de Informática - Bloco C",
-    status: "PENDENTE",
-    startDate: "2025-05-15T13:30:00",
-    endDate: "2025-05-16T17:30:00",
-    createdBy: "Prof. Paulo Mendes",
-    participantsCount: 12,
-    maxParticipants: 25,
-  },
-  {
-    id: "3",
-    title: "Palestra: Avanços em Biologia Molecular",
-    description:
-      "Palestra com o Dr. Roberto Santos sobre as últimas descobertas em biologia molecular.",
-    location: "Sala de Conferências - Bloco B",
-    status: "APROVADO",
-    startDate: "2025-05-10T19:00:00",
-    endDate: "2025-05-10T21:30:00",
-    createdBy: "Coord. Maria Oliveira",
-    participantsCount: 30,
-    maxParticipants: 50,
-  },
-  {
-    id: "4",
-    title: "Hackathon de Soluções Sustentáveis",
-    description:
-      "Desafio de programação para desenvolver tecnologias voltadas à sustentabilidade.",
-    location: "Centro de Inovação",
-    status: "APROVADO",
-    startDate: "2025-06-05T08:00:00",
-    endDate: "2025-06-07T18:00:00",
-    createdBy: "Prof. Carlos Souza",
-    participantsCount: 40,
-    maxParticipants: 60,
-  },
-  {
-    id: "5",
-    title: "Feira de Carreiras em Biotecnologia",
-    description:
-      "Evento para conectar alunos a oportunidades profissionais na área de biotecnologia.",
-    location: "Pavilhão Central",
-    status: "APROVADO",
-    startDate: "2025-05-25T10:00:00",
-    endDate: "2025-05-25T16:00:00",
-    createdBy: "Depto. de Carreiras",
-    participantsCount: 120,
-    maxParticipants: 200,
-  },
-  {
-    id: "6",
-    title: "Mesa Redonda: Ética em Pesquisa",
-    description:
-      "Discussão sobre aspectos éticos na pesquisa científica com profissionais de diversas áreas.",
-    location: "Auditório Secundário - Bloco A",
-    status: "REJEITADO",
-    startDate: "2025-05-20T14:00:00",
-    endDate: "2025-05-20T17:00:00",
-    createdBy: "Prof. Luciana Costa",
-    participantsCount: 0,
-    maxParticipants: 40,
-  },
-];
-
-// Componente para exibir o status do evento com cores adequadas
-const StatusBadge = ({ status }) => {
-  const statusMap = {
-    PENDENTE: { bg: "bg-yellow-500", icon: <Clock className="mr-1 h-3 w-3" /> },
-    APROVADO: {
-      bg: "bg-green-500",
-      icon: <CheckCircle className="mr-1 h-3 w-3" />,
-    },
-    REJEITADO: { bg: "bg-red-500", icon: <XCircle className="mr-1 h-3 w-3" /> },
-    EM_ANDAMENTO: {
-      bg: "bg-blue-500",
-      icon: <Calendar className="mr-1 h-3 w-3" />,
-    },
-    CONCLUIDO: {
-      bg: "bg-purple-500",
-      icon: <CheckCircle className="mr-1 h-3 w-3" />,
-    },
-    CANCELADO: {
-      bg: "bg-gray-500",
-      icon: <XCircle className="mr-1 h-3 w-3" />,
-    },
-  };
-
-  const { bg, icon } = statusMap[status] || statusMap.PENDENTE;
-
-  return (
-    <Badge className={bg}>
-      {icon}
-      {status.replace("_", " ")}
-    </Badge>
-  );
-};
+import {
+  Plus,
+  Search,
+  MoreHorizontal,
+  Edit,
+  Trash2,
+  Eye,
+  Calendar,
+  MapPin,
+  DollarSign,
+  Users,
+  AlertCircle,
+} from "lucide-react";
+import { toast } from "sonner";
+import { format, isAfter, isBefore, addDays } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export default function EventosPage() {
+  const router = useRouter();
+  const { user, hasPermission } = useAuth();
+  const { eventos, loading, error, fetchEventos, deleteEvento } = useEventos();
+
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [view, setView] = useState("cards");
-  const [periodFilter, setPeriodFilter] = useState("");
+  const [cursoFilter, setCursoFilter] = useState("todos");
+  const [periodoFilter, setPeriodoFilter] = useState("todos");
 
-  // Filtrar eventos com base nos critérios
-  const filteredEvents = mockEvents.filter((event) => {
+  useEffect(() => {
+    fetchEventos();
+  }, []);
+
+  // Filtrar eventos
+  const filteredEventos = eventos.filter((evento) => {
     const matchesSearch =
-      event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      event.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      event.location.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      !statusFilter || statusFilter === "all" || event.status === statusFilter;
+      evento.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      evento.local.toLowerCase().includes(searchTerm.toLowerCase());
 
-    // Filtrar por período (próximos 7 dias, 30 dias, etc.)
-    let matchesPeriod = !periodFilter || periodFilter === "all";
-    if (periodFilter && periodFilter !== "all") {
-      const today = new Date();
-      const eventDate = new Date(event.startDate);
-      const diffDays = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24));
+    const matchesCurso =
+      cursoFilter === "todos" || evento.curso.includes(cursoFilter);
 
-      if (periodFilter === "7days" && (diffDays < 0 || diffDays > 7)) {
-        matchesPeriod = false;
-      } else if (periodFilter === "30days" && (diffDays < 0 || diffDays > 30)) {
-        matchesPeriod = false;
-      } else if (periodFilter === "past" && diffDays >= 0) {
-        matchesPeriod = false;
-      }
+    // Filtro por período
+    const today = new Date();
+    let matchesPeriodo = true;
+
+    if (periodoFilter === "proximos") {
+      matchesPeriodo = isAfter(new Date(evento.dataInicio), today);
+    } else if (periodoFilter === "em_andamento") {
+      matchesPeriodo =
+        isBefore(new Date(evento.dataInicio), today) &&
+        isAfter(new Date(evento.dataTermino), today);
+    } else if (periodoFilter === "concluidos") {
+      matchesPeriodo = isBefore(new Date(evento.dataTermino), today);
     }
 
-    return matchesSearch && matchesStatus && matchesPeriod;
+    return matchesSearch && matchesCurso && matchesPeriodo;
   });
 
-  // Função para formatar data
-  const formatDate = (dateString) => {
-    if (!dateString) return "Não definida";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  // Obter status do evento baseado nas datas
+  const getEventoStatus = (dataInicio: string, dataTermino: string) => {
+    const today = new Date();
+    const inicio = new Date(dataInicio);
+    const termino = new Date(dataTermino);
+
+    if (isAfter(inicio, today)) {
+      return { label: "Próximo", variant: "secondary" as const };
+    } else if (isBefore(inicio, today) && isAfter(termino, today)) {
+      return { label: "Em Andamento", variant: "default" as const };
+    } else if (isBefore(termino, today)) {
+      return { label: "Concluído", variant: "outline" as const };
+    }
+    return { label: "Indefinido", variant: "secondary" as const };
   };
+
+  // Deletar evento
+  const handleDeleteEvento = async (id: number, titulo: string) => {
+    try {
+      await deleteEvento(id);
+      toast.success(`Evento "${titulo}" deletado com sucesso!`);
+    } catch (error) {
+      toast.error("Erro ao deletar evento");
+    }
+  };
+
+  // Cursos únicos
+  const cursosDisponiveis = [...new Set(eventos.map((e) => e.curso))];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-sm text-muted-foreground">
+            Carregando eventos...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2">
+            Erro ao carregar eventos
+          </h3>
+          <p className="text-sm text-muted-foreground mb-4">{error}</p>
+          <Button onClick={fetchEventos}>Tentar novamente</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const eventosProximos = eventos.filter((e) =>
+    isAfter(new Date(e.dataInicio), new Date())
+  );
+  const eventosEmAndamento = eventos.filter(
+    (e) =>
+      isBefore(new Date(e.dataInicio), new Date()) &&
+      isAfter(new Date(e.dataTermino), new Date())
+  );
+  const eventosConcluidos = eventos.filter((e) =>
+    isBefore(new Date(e.dataTermino), new Date())
+  );
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      {/* Header */}
+      <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold">Eventos</h1>
           <p className="text-muted-foreground">
-            Gerencie eventos institucionais e inscrições
+            Gerencie eventos acadêmicos e institucionais
           </p>
         </div>
-        <Link href="/eventos/new">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Novo Evento
-          </Button>
-        </Link>
+        {hasPermission("ADMIN") && (
+          <Link href="/eventos/new">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Evento
+            </Button>
+          </Link>
+        )}
       </div>
 
-      {/* Filtros e Pesquisa */}
-      <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar eventos..."
-            className="pl-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full md:w-[180px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="PENDENTE">Pendente</SelectItem>
-            <SelectItem value="APROVADO">Aprovado</SelectItem>
-            <SelectItem value="REJEITADO">Rejeitado</SelectItem>
-            <SelectItem value="EM_ANDAMENTO">Em Andamento</SelectItem>
-            <SelectItem value="CONCLUIDO">Concluído</SelectItem>
-            <SelectItem value="CANCELADO">Cancelado</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={periodFilter} onValueChange={setPeriodFilter}>
-          <SelectTrigger className="w-full md:w-[180px]">
-            <SelectValue placeholder="Período" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="7days">Próximos 7 dias</SelectItem>
-            <SelectItem value="30days">Próximos 30 dias</SelectItem>
-            <SelectItem value="past">Eventos passados</SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="flex border rounded-md">
-          <Button
-            variant={view === "cards" ? "default" : "ghost"}
-            size="sm"
-            className="rounded-r-none"
-            onClick={() => setView("cards")}
-          >
-            Cards
-          </Button>
-          <Button
-            variant={view === "calendar" ? "default" : "ghost"}
-            size="sm"
-            className="rounded-l-none"
-            onClick={() => setView("calendar")}
-          >
-            Calendário
-          </Button>
-        </div>
+      {/* Cards de estatísticas */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Total de Eventos
+            </CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{eventos.length}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Próximos</CardTitle>
+            <Calendar className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{eventosProximos.length}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Em Andamento</CardTitle>
+            <Calendar className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {eventosEmAndamento.length}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Orçamento Total
+            </CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              R${" "}
+              {eventos
+                .reduce((acc, e) => acc + (e.vlTotalSolicitado || 0), 0)
+                .toLocaleString()}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Visualização por Cards */}
-      {view === "cards" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredEvents.map((event) => (
-            <Card key={event.id} className="hover:shadow-md transition">
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">{event.title}</CardTitle>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                      <DropdownMenuItem>
-                        <Link
-                          href={`/eventos/${event.id}`}
-                          className="flex w-full"
-                        >
-                          Ver detalhes
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>Editar</DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem>Inscrever-se</DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-red-600">
-                        Cancelar
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                <CardDescription className="mt-1">
-                  {event.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pb-2">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <StatusBadge status={event.status} />
-                    <Badge variant="outline">
-                      {event.participantsCount}/{event.maxParticipants}{" "}
-                      participantes
-                    </Badge>
-                  </div>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    <span>
-                      {formatDate(event.startDate)}
-                      {event.endDate &&
-                      event.startDate.split("T")[0] ===
-                        event.endDate.split("T")[0]
-                        ? ` - ${new Date(event.endDate).toLocaleTimeString(
-                            "pt-BR",
-                            { hour: "2-digit", minute: "2-digit" }
-                          )}`
-                        : event.endDate
-                        ? ` até ${formatDate(event.endDate)}`
-                        : ""}
-                    </span>
-                  </div>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <MapPin className="mr-2 h-4 w-4" />
-                    <span>{event.location}</span>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <div className="flex justify-between items-center w-full">
-                  <span className="text-sm text-muted-foreground">
-                    Criado por: {event.createdBy}
-                  </span>
-                  <Link href={`/eventos/${event.id}`}>
-                    <Button variant="ghost" size="sm">
-                      Ver
-                    </Button>
-                  </Link>
-                </div>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Visualização de Calendário (Simplificada) */}
-      {view === "calendar" && (
-        <div className="border rounded-lg overflow-hidden">
-          <div className="bg-slate-50 p-4 flex justify-between items-center border-b">
-            <Button variant="outline" size="sm">
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Anterior
-            </Button>
-            <h2 className="text-lg font-semibold">Maio 2025</h2>
-            <Button variant="outline" size="sm">
-              Próximo
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          </div>
-          <div className="grid grid-cols-7 gap-px bg-slate-200">
-            {/* Cabeçalho dos dias da semana */}
-            {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((day) => (
-              <div
-                key={day}
-                className="bg-slate-50 p-2 text-center font-medium"
-              >
-                {day}
+      {/* Filtros */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Filtros</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar eventos..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
               </div>
-            ))}
+            </div>
 
-            {/* Dias do mês (exemplo simplificado) */}
-            {Array(35)
-              .fill(null)
-              .map((_, index) => {
-                const day = index - 2; // Ajuste para começar no dia correto da semana
-                const isCurrentMonth = day > 0 && day <= 31;
-                const dateStr = isCurrentMonth
-                  ? `2025-05-${String(day).padStart(2, "0")}`
-                  : "";
+            <Select value={cursoFilter} onValueChange={setCursoFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Curso" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os Cursos</SelectItem>
+                {cursosDisponiveis.map((curso) => (
+                  <SelectItem key={curso} value={curso}>
+                    {curso}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-                // Encontrar eventos para este dia
-                const dayEvents = mockEvents.filter((event) => {
-                  if (!isCurrentMonth) return false;
-                  const eventDate = new Date(event.startDate);
-                  return (
-                    eventDate.getDate() === day && eventDate.getMonth() === 4
-                  ); // Maio é mês 4 (0-indexado)
-                });
-
-                return (
-                  <div
-                    key={index}
-                    className={`bg-white p-1 min-h-[100px] ${
-                      !isCurrentMonth ? "text-slate-300" : ""
-                    }`}
-                  >
-                    <div className="p-1 font-medium">
-                      {isCurrentMonth ? day : ""}
-                    </div>
-                    {dayEvents.map((event) => (
-                      <Link href={`/eventos/${event.id}`} key={event.id}>
-                        <div className="text-xs p-1 mb-1 rounded bg-blue-100 text-blue-800 truncate hover:bg-blue-200">
-                          {new Date(event.startDate).toLocaleTimeString(
-                            "pt-BR",
-                            { hour: "2-digit", minute: "2-digit" }
-                          )}{" "}
-                          - {event.title}
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                );
-              })}
+            <Select value={periodoFilter} onValueChange={setPeriodoFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Período" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os Períodos</SelectItem>
+                <SelectItem value="proximos">Próximos</SelectItem>
+                <SelectItem value="em_andamento">Em Andamento</SelectItem>
+                <SelectItem value="concluidos">Concluídos</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </div>
-      )}
+        </CardContent>
+      </Card>
 
-      {/* Mensagem quando não há eventos */}
-      {filteredEvents.length === 0 && (
-        <div className="flex flex-col items-center justify-center p-8 text-center">
-          <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium">Nenhum evento encontrado</h3>
-          <p className="text-muted-foreground mt-1">
-            Não encontramos eventos que correspondam aos seus critérios de
-            busca.
-          </p>
-          <Button
-            variant="outline"
-            className="mt-4"
-            onClick={() => {
-              setSearchTerm("");
-              setStatusFilter("");
-              setPeriodFilter("");
-            }}
-          >
-            Limpar filtros
-          </Button>
-        </div>
-      )}
+      {/* Tabela de eventos */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Lista de Eventos</CardTitle>
+          <CardDescription>
+            {filteredEventos.length} evento(s) encontrado(s)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {filteredEventos.length === 0 ? (
+            <div className="text-center py-8">
+              <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">
+                Nenhum evento encontrado
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {searchTerm ||
+                cursoFilter !== "todos" ||
+                periodoFilter !== "todos"
+                  ? "Tente ajustar os filtros."
+                  : "Nenhum evento cadastrado ainda."}
+              </p>
+              {hasPermission("ADMIN") && (
+                <Link href="/eventos/new">
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Criar Evento
+                  </Button>
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Título</TableHead>
+                    <TableHead>Curso</TableHead>
+                    <TableHead>Data Início</TableHead>
+                    <TableHead>Data Término</TableHead>
+                    <TableHead>Local</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Orçamento</TableHead>
+                    <TableHead>Participantes</TableHead>
+                    <TableHead className="w-[100px]">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredEventos.map((evento) => {
+                    const status = getEventoStatus(
+                      evento.dataInicio,
+                      evento.dataTermino
+                    );
+                    return (
+                      <TableRow key={evento.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{evento.titulo}</div>
+                            <div className="text-sm text-muted-foreground truncate max-w-[200px]">
+                              {evento.justificativa}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{evento.curso}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(evento.dataInicio), "dd/MM/yyyy", {
+                            locale: ptBR,
+                          })}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(evento.dataTermino), "dd/MM/yyyy", {
+                            locale: ptBR,
+                          })}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <MapPin className="h-4 w-4 text-muted-foreground mr-1" />
+                            {evento.local}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={status.variant}>{status.label}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            <div>
+                              Sol: R${" "}
+                              {evento.vlTotalSolicitado?.toLocaleString() ||
+                                "0"}
+                            </div>
+                            <div className="text-muted-foreground">
+                              Apr: R${" "}
+                              {evento.vlTotalAprovado?.toLocaleString() || "0"}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <Users className="h-4 w-4 text-muted-foreground mr-1" />
+                            {evento.participantes?.length || 0}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  router.push(`/eventos/${evento.id}`)
+                                }
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                Visualizar
+                              </DropdownMenuItem>
+                              {hasPermission("ADMIN") && (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      router.push(`/eventos/${evento.id}/edit`)
+                                    }
+                                  >
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Editar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <DropdownMenuItem
+                                        className="text-destructive"
+                                        onSelect={(e) => e.preventDefault()}
+                                      >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Deletar
+                                      </DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                          Confirmar Exclusão
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Tem certeza que deseja deletar o
+                                          evento "{evento.titulo}"? Esta ação
+                                          não pode ser desfeita.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>
+                                          Cancelar
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() =>
+                                            handleDeleteEvento(
+                                              evento.id,
+                                              evento.titulo
+                                            )
+                                          }
+                                          className="bg-destructive hover:bg-destructive/90"
+                                        >
+                                          Deletar
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
-
-// Ícones adicionais para a visualização de calendário
-const ChevronLeft = ({ className }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <polyline points="15 18 9 12 15 6" />
-  </svg>
-);
-
-const ChevronRight = ({ className }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <polyline points="9 18 15 12 9 6" />
-  </svg>
-);
