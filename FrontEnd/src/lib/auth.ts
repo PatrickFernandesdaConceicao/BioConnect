@@ -34,7 +34,6 @@ export interface AuthState {
   token: string | null;
 }
 
-// Salvar dados de autenticação
 export function saveAuthData(
   token: string,
   userData: User,
@@ -47,13 +46,11 @@ export function saveAuthData(
   storage.setItem("bioconnect_token", token);
   storage.setItem("bioconnect_user", JSON.stringify(userData));
 
-  // Limpar dados do armazenamento oposto se necessário
   const oppositeStorage = rememberMe ? sessionStorage : localStorage;
   oppositeStorage.removeItem("bioconnect_token");
   oppositeStorage.removeItem("bioconnect_user");
 }
 
-// Verificar se o usuário está autenticado
 export function isAuthenticated(): boolean {
   if (typeof window === "undefined") return false;
 
@@ -63,7 +60,6 @@ export function isAuthenticated(): boolean {
   return !!(token && user && !isTokenExpired());
 }
 
-// Obter token do armazenamento
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
 
@@ -73,7 +69,6 @@ export function getToken(): string | null {
   );
 }
 
-// Obter dados do usuário
 export function getUser(): User | null {
   if (typeof window === "undefined") return null;
 
@@ -90,7 +85,6 @@ export function getUser(): User | null {
   }
 }
 
-// Obter estado completo da autenticação
 export function getAuthState(): AuthState {
   const token = getToken();
   const user = getUser();
