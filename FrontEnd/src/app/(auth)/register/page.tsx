@@ -1,4 +1,3 @@
-// app/(auth)/register/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -30,7 +29,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-// Schema de validação simplificado para cadastro básico de usuário
 const registerSchema = z
   .object({
     nome: z.string().min(3, {
@@ -65,7 +63,6 @@ const registerSchema = z
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
-// Interface para a resposta da API
 interface RegisterResponse {
   id?: string;
   message?: string;
@@ -73,7 +70,6 @@ interface RegisterResponse {
   errors?: Record<string, string>;
 }
 
-// Interface para os dados enviados à API
 interface RegisterRequest {
   login: string;
   senha: string;
@@ -98,7 +94,6 @@ export default function RegisterPage() {
     },
   });
 
-  // Função para fazer a chamada à API de registro
   async function registerUser(
     userData: RegisterRequest
   ): Promise<RegisterResponse> {
@@ -133,9 +128,8 @@ export default function RegisterPage() {
     setIsSubmitting(true);
 
     try {
-      // Preparar dados para envio à API (role sempre será "USER")
       const registerData: RegisterRequest = {
-        login: values.login, // aspas explícitas
+        login: values.login,
         senha: values.senha,
         nome: values.nome,
         email: values.email,
@@ -149,17 +143,14 @@ export default function RegisterPage() {
           "Sua conta foi criada. Você será redirecionado para o login.",
       });
 
-      // Limpar formulário
       form.reset();
 
-      // Redirecionar para login após 2 segundos
       setTimeout(() => {
         router.push("/dashboard");
       }, 2000);
     } catch (error: any) {
       console.error("Erro ao registrar:", error);
 
-      // Tratar erros de validação específicos do backend
       if (error.errors && typeof error.errors === "object") {
         Object.keys(error.errors).forEach((key) => {
           const fieldMap: Record<string, keyof RegisterFormValues> = {
@@ -178,7 +169,6 @@ export default function RegisterPage() {
           }
         });
       } else {
-        // Tratar erros gerais
         let errorMessage = "Verifique os dados e tente novamente.";
 
         if (error.status === 400) {

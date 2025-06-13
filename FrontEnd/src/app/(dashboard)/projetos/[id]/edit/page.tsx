@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useParams } from "next/navigation";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { z } from "zod";
@@ -47,8 +48,6 @@ import {
   Users,
   Target,
   BookOpen,
-  Plus,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -63,13 +62,15 @@ const projetoSchema = z.object({
   justificativa: z
     .string()
     .min(20, "A justificativa deve ter pelo menos 20 caracteres"),
-  dataInicio: z.string().min(1, "A data de início é obrigatória"),
-  dataTermino: z.string().min(1, "A data de término é obrigatória"),
-  areaConhecimento: z.string().min(1, "Selecione uma área de conhecimento"),
-  tipoProjeto: z.string().min(1, "Selecione o tipo de projeto"),
-  possuiOrcamento: z.boolean(),
-  orcamento: z.number().min(0, "O orçamento não pode ser negativo"),
-  urlEdital: z.string().optional(),
+  dataInicio: z.string({ required_error: "A data de início é obrigatória" }),
+  dataTermino: z.string({ required_error: "A data de término é obrigatória" }),
+  areaConhecimento: z.string({
+    required_error: "Selecione uma área de conhecimento",
+  }),
+  tipoProjeto: z.string({ required_error: "Selecione o tipo de projeto" }),
+  possuiOrcamento: z.boolean().optional().default(false),
+  orcamento: z.number().min(0, "O orçamento não pode ser negativo").optional(),
+  urlEdital: z.string().url("URL inválida").optional().or(z.literal("")),
   limiteParticipantes: z.number().min(1, "Deve ter pelo menos 1 participante"),
   publicoAlvo: z
     .string()
@@ -83,6 +84,7 @@ const projetoSchema = z.object({
   palavrasChave: z
     .string()
     .min(5, "As palavras-chave devem ter pelo menos 5 caracteres"),
+  emailsParticipantes: z.array(z.string().email("Email inválido")).optional(),
   aceitouTermos: z
     .boolean()
     .refine((val) => val === true, "Você deve aceitar os termos"),
@@ -99,8 +101,6 @@ const areasConhecimento = [
   "Engenharia",
   "Ciências Biológicas",
   "Ciências Exatas",
-  "Ciências Humanas",
-  "Ciências Sociais",
 ];
 
 const tiposProjeto = [
@@ -110,18 +110,19 @@ const tiposProjeto = [
   "TCC",
   "Mestrado",
   "Doutorado",
-  "Projeto Social",
-  "Inovação Tecnológica",
 ];
 
-export default function NewProjetoPage() {
+export default function EditProjetoPage() {
+  const params = useParams();
   const router = useRouter();
-  const { createProjeto } = useProjetos();
+  const { projetos, updateProjeto } = useProjetos();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("basicas");
   const [emailParticipante, setEmailParticipante] = useState("");
-  const [participantes, setParticipantes] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const projetoId = params.id as string;
 
   const form = useForm<ProjetoFormValues>({
     resolver: zodResolver(projetoSchema),
@@ -142,48 +143,90 @@ export default function NewProjetoPage() {
       metodologia: "",
       resultadosEsperados: "",
       palavrasChave: "",
+      emailsParticipantes: [],
       aceitouTermos: false,
     },
   });
 
   const possuiOrcamento = form.watch("possuiOrcamento");
+  const emailsParticipantes = form.watch("emailsParticipantes") || [];
+
+  useEffect(() => {
+    const projeto = projetos.find((p) => p.id.toString() === projetoId);
+    if (projeto) {
+      form.reset({
+        titulo: projeto.titulo,
+        descricao: projeto.descricao,
+        objetivos: projeto.objetivos,
+        justificativa: projeto.justificativa,
+        dataInicio: projeto.dataInicio,
+        dataTermino: projeto.dataTermino,
+        areaConhecimento: projeto.areaConhecimento,
+        tipoProjeto: projeto.tipoProjeto,
+        possuiOrcamento: projeto.possuiOrcamento,
+        orcamento: projeto.orcamento,
+        urlEdital: projeto.urlEdital,
+        limiteParticipantes: projeto.limiteParticipantes,
+        publicoAlvo: projeto.publicoAlvo,
+        metodologia: projeto.metodologia,
+        resultadosEsperados: projeto.resultadosEsperados,
+        palavrasChave: projeto.palavrasChave,
+        emailsParticipantes: projeto.emailsParticipantes || [],
+        aceitouTermos: projeto.aceitouTermos,
+      });
+      setIsLoading(false);
+    }
+  }, [projetoId, projetos, form]);
 
   const handleAddParticipante = () => {
-    if (emailParticipante && !participantes.includes(emailParticipante)) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(emailParticipante)) {
-        toast.error("Email inválido");
-        return;
-      }
-      setParticipantes([...participantes, emailParticipante]);
+    if (emailParticipante && !emailsParticipantes.includes(emailParticipante)) {
+      form.setValue("emailsParticipantes", [
+        ...emailsParticipantes,
+        emailParticipante,
+      ]);
       setEmailParticipante("");
     }
   };
 
   const handleRemoveParticipante = (email: string) => {
-    setParticipantes(participantes.filter((e) => e !== email));
+    form.setValue(
+      "emailsParticipantes",
+      emailsParticipantes.filter((e) => e !== email)
+    );
   };
 
   async function onSubmit(values: ProjetoFormValues) {
     setIsSubmitting(true);
 
     try {
-      const projetoData: ProjetoData = {
+      const projetoData: Partial<ProjetoData> = {
         ...values,
-        orcamento: values.possuiOrcamento ? values.orcamento : 0,
+        orcamento: values.possuiOrcamento ? values.orcamento || 0 : 0,
         urlEdital: values.urlEdital || "",
-        emailsParticipantes: participantes,
+        emailsParticipantes: values.emailsParticipantes || [],
       };
 
-      await createProjeto(projetoData);
-      toast.success("Projeto criado com sucesso!");
+      await updateProjeto(parseInt(projetoId), projetoData);
+      toast.success("Projeto atualizado com sucesso!");
       router.push("/projetos");
     } catch (error) {
-      console.error("Erro ao criar projeto:", error);
-      toast.error("Erro ao criar projeto. Tente novamente.");
+      toast.error("Erro ao atualizar projeto");
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-sm text-muted-foreground">
+            Carregando projeto...
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -196,9 +239,9 @@ export default function NewProjetoPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold">Novo Projeto</h1>
+          <h1 className="text-3xl font-bold">Editar Projeto</h1>
           <p className="text-muted-foreground">
-            Crie um novo projeto de pesquisa ou extensão
+            Atualize as informações do projeto
           </p>
         </div>
       </div>
@@ -213,7 +256,7 @@ export default function NewProjetoPage() {
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="basicas">
                 <FileText className="mr-2 h-4 w-4" />
-                Básicas
+                Informações Básicas
               </TabsTrigger>
               <TabsTrigger value="detalhes">
                 <Target className="mr-2 h-4 w-4" />
@@ -237,30 +280,30 @@ export default function NewProjetoPage() {
                   <CardDescription>Dados principais do projeto</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="titulo"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Título do Projeto *</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Digite o título do projeto"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="titulo"
+                      render={({ field }) => (
+                        <FormItem className="md:col-span-2">
+                          <FormLabel>Título do Projeto</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Digite o título do projeto"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
                     <FormField
                       control={form.control}
                       name="areaConhecimento"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Área de Conhecimento *</FormLabel>
+                          <FormLabel>Área de Conhecimento</FormLabel>
                           <Select
                             onValueChange={field.onChange}
                             value={field.value}
@@ -288,7 +331,7 @@ export default function NewProjetoPage() {
                       name="tipoProjeto"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Tipo de Projeto *</FormLabel>
+                          <FormLabel>Tipo de Projeto</FormLabel>
                           <Select
                             onValueChange={field.onChange}
                             value={field.value}
@@ -310,15 +353,13 @@ export default function NewProjetoPage() {
                         </FormItem>
                       )}
                     />
-                  </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="dataInicio"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Data de Início *</FormLabel>
+                          <FormLabel>Data de Início</FormLabel>
                           <FormControl>
                             <Input type="date" {...field} />
                           </FormControl>
@@ -332,7 +373,7 @@ export default function NewProjetoPage() {
                       name="dataTermino"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Data de Término *</FormLabel>
+                          <FormLabel>Data de Término</FormLabel>
                           <FormControl>
                             <Input type="date" {...field} />
                           </FormControl>
@@ -347,7 +388,7 @@ export default function NewProjetoPage() {
                     name="descricao"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Descrição *</FormLabel>
+                        <FormLabel>Descrição</FormLabel>
                         <FormControl>
                           <Textarea
                             placeholder="Descreva brevemente o projeto"
@@ -355,9 +396,6 @@ export default function NewProjetoPage() {
                             {...field}
                           />
                         </FormControl>
-                        <FormDescription>
-                          Mínimo de 20 caracteres
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -381,7 +419,7 @@ export default function NewProjetoPage() {
                     name="objetivos"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Objetivos *</FormLabel>
+                        <FormLabel>Objetivos</FormLabel>
                         <FormControl>
                           <Textarea
                             placeholder="Descreva os objetivos do projeto"
@@ -399,7 +437,7 @@ export default function NewProjetoPage() {
                     name="justificativa"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Justificativa *</FormLabel>
+                        <FormLabel>Justificativa</FormLabel>
                         <FormControl>
                           <Textarea
                             placeholder="Justifique a relevância do projeto"
@@ -417,7 +455,7 @@ export default function NewProjetoPage() {
                     name="metodologia"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Metodologia *</FormLabel>
+                        <FormLabel>Metodologia</FormLabel>
                         <FormControl>
                           <Textarea
                             placeholder="Descreva a metodologia a ser utilizada"
@@ -435,7 +473,7 @@ export default function NewProjetoPage() {
                     name="resultadosEsperados"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Resultados Esperados *</FormLabel>
+                        <FormLabel>Resultados Esperados</FormLabel>
                         <FormControl>
                           <Textarea
                             placeholder="Descreva os resultados esperados"
@@ -454,7 +492,7 @@ export default function NewProjetoPage() {
                       name="publicoAlvo"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Público-Alvo *</FormLabel>
+                          <FormLabel>Público-Alvo</FormLabel>
                           <FormControl>
                             <Textarea
                               placeholder="Descreva o público-alvo"
@@ -472,10 +510,10 @@ export default function NewProjetoPage() {
                       name="palavrasChave"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Palavras-Chave *</FormLabel>
+                          <FormLabel>Palavras-Chave</FormLabel>
                           <FormControl>
                             <Textarea
-                              placeholder="Ex: biotecnologia, pesquisa, inovação"
+                              placeholder="Palavras-chave separadas por vírgula"
                               className="min-h-[80px]"
                               {...field}
                             />
@@ -589,7 +627,7 @@ export default function NewProjetoPage() {
                     name="limiteParticipantes"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Limite de Participantes *</FormLabel>
+                        <FormLabel>Limite de Participantes</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -628,17 +666,17 @@ export default function NewProjetoPage() {
                         onClick={handleAddParticipante}
                         disabled={!emailParticipante}
                       >
-                        <Plus className="h-4 w-4" />
+                        Adicionar
                       </Button>
                     </div>
 
-                    {participantes.length > 0 && (
+                    {emailsParticipantes.length > 0 && (
                       <div className="space-y-2">
                         <p className="text-sm text-muted-foreground">
-                          Participantes adicionados ({participantes.length}):
+                          Participantes adicionados:
                         </p>
                         <div className="space-y-1">
-                          {participantes.map((email, index) => (
+                          {emailsParticipantes.map((email, index) => (
                             <div
                               key={index}
                               className="flex items-center justify-between bg-muted p-2 rounded"
@@ -650,7 +688,7 @@ export default function NewProjetoPage() {
                                 size="sm"
                                 onClick={() => handleRemoveParticipante(email)}
                               >
-                                <X className="h-4 w-4" />
+                                Remover
                               </Button>
                             </div>
                           ))}
@@ -679,7 +717,7 @@ export default function NewProjetoPage() {
                         />
                       </FormControl>
                       <div className="space-y-1 leading-none">
-                        <FormLabel>Aceito os termos e condições *</FormLabel>
+                        <FormLabel>Aceito os termos e condições</FormLabel>
                         <FormDescription>
                           Declaro que as informações fornecidas são verdadeiras
                           e estou ciente das responsabilidades envolvidas no
@@ -702,12 +740,12 @@ export default function NewProjetoPage() {
                     {isSubmitting ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Criando...
+                        Atualizando...
                       </>
                     ) : (
                       <>
                         <Save className="mr-2 h-4 w-4" />
-                        Criar Projeto
+                        Atualizar Projeto
                       </>
                     )}
                   </Button>

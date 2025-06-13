@@ -18,7 +18,6 @@ export default function DashboardLayout({
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Aguardar um pouco para garantir que a autenticação foi verificada
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, 500);
