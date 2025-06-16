@@ -589,7 +589,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ===================================================================
   const fetchDisciplinas = async () => {
     try {
-      const response = await authFetch(`${API_URL}/api/disciplinas`);
+      const response = await authFetch(`${API_URL}/api/catalogo/disciplinas`);
       if (!response.ok) {
         throw new Error(`Erro ao buscar disciplinas: ${response.status}`);
       }
@@ -603,7 +603,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const fetchCursos = async () => {
     try {
-      const response = await authFetch(`${API_URL}/api/cursos`);
+      const response = await authFetch(`${API_URL}/api/catalogo/cursos`);
       if (!response.ok) {
         throw new Error(`Erro ao buscar cursos: ${response.status}`);
       }
