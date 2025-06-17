@@ -1,4 +1,3 @@
-// app/(dashboard)/relatorios/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -65,7 +64,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// Dados fictícios para os gráficos
 const projetosPorMes = [
   { name: "Jan", projetos: 4 },
   { name: "Fev", projetos: 3 },
@@ -135,7 +133,6 @@ const participacaoPorEvento = [
   { name: "Feira de Carreiras", inscritos: 120, presentes: 95 },
 ];
 
-// Atividades recentes (últimos 6 meses)
 const atividadesRecentes = [
   {
     id: "1",
@@ -203,10 +200,8 @@ const atividadesRecentes = [
   },
 ];
 
-// Cores para os gráficos
 const COLORS = ["#6366f1", "#ec4899", "#f97316", "#10b981", "#ef4444"];
 
-// Componente para o ícone de atividade
 const ActivityIcon = ({ tipo }) => {
   switch (tipo) {
     case "projeto":
@@ -220,7 +215,6 @@ const ActivityIcon = ({ tipo }) => {
   }
 };
 
-// Componente para o status
 const StatusBadge = ({ status }) => {
   const getColor = () => {
     switch (status.toLowerCase()) {
@@ -247,7 +241,6 @@ export default function RelatoriosPage() {
   const [periodoFiltro, setPeriodoFiltro] = useState("2025");
   const [tipoGrafico, setTipoGrafico] = useState("barras");
 
-  // Filtrar atividades pelo tipo
   const filteredAtividades =
     tipoAtividade === "todos"
       ? atividadesRecentes

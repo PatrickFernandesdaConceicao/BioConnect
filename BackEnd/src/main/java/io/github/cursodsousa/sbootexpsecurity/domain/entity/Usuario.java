@@ -27,6 +27,8 @@ public class Usuario implements UserDetails {
     private String senha;
     private String nome;
     private String email;
+
+    @Column(columnDefinition = "TINYINT")
     private UserRole role;
 
     public Usuario(String login, String senha, String nome, String email, UserRole role){
@@ -39,8 +41,20 @@ public class Usuario implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        if(this.role == UserRole.ADMIN) return List.of(new SimpleGrantedAuthority("ROLE_ADMIN"), new SimpleGrantedAuthority("ROLE_USER"));
-        else return List.of(new SimpleGrantedAuthority("ROLE_USER"));
+        List<GrantedAuthority> authorities = new ArrayList<>();
+
+        // Todas as roles têm ROLE_USER por padrão
+        authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+
+        // Adiciona permissões específicas
+        if (this.role == UserRole.ADMIN) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+            authorities.add(new SimpleGrantedAuthority("ROLE_PROFESSOR"));
+        } else if (this.role == UserRole.PROFESSOR) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_PROFESSOR"));
+        }
+
+        return authorities;
     }
 
     @Override
