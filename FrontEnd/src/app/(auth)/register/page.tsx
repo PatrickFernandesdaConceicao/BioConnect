@@ -1,4 +1,3 @@
-// app/(auth)/register/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -7,6 +6,7 @@ import Link from "next/link";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,16 +18,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Sonner } from "@/components/ui/sonner";
 import {
   Card,
   CardContent,
@@ -37,86 +29,172 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-// Esquema de validação do formulário
 const registerSchema = z
   .object({
-    name: z.string().min(3, {
+    nome: z.string().min(3, {
       message: "O nome deve ter pelo menos 3 caracteres",
     }),
     email: z.string().email({
       message: "Email inválido",
     }),
-    password: z.string().min(8, {
-      message: "A senha deve ter pelo menos 8 caracteres",
+    login: z
+      .string()
+      .min(3, {
+        message: "O usuário deve ter pelo menos 3 caracteres",
+      })
+      .regex(/^[a-zA-Z0-9._-]+$/, {
+        message:
+          "Usuário deve conter apenas letras, números, pontos, hífens e underscores",
+      }),
+    senha: z.string().min(6, {
+      message: "A senha deve ter pelo menos 6 caracteres",
     }),
-    confirmPassword: z.string().min(8, {
-      message: "A confirmação de senha deve ter pelo menos 8 caracteres",
+    confirmacaoSenha: z.string().min(6, {
+      message: "A confirmação de senha deve ter pelo menos 6 caracteres",
     }),
-    role: z.string({
-      required_error: "Selecione um tipo de usuário",
-    }),
-    institution: z.string().optional(),
-    acceptTerms: z.boolean().refine((val) => val === true, {
+    aceiteTermos: z.boolean().refine((val) => val === true, {
       message: "Você deve aceitar os termos e condições",
     }),
   })
-  .refine((data) => data.password === data.confirmPassword, {
+  .refine((data) => data.senha === data.confirmacaoSenha, {
     message: "As senhas não coincidem",
-    path: ["confirmPassword"],
+    path: ["confirmacaoSenha"],
   });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
+
+interface RegisterResponse {
+  id?: string;
+  message?: string;
+  error?: string;
+  errors?: Record<string, string>;
+}
+
+interface RegisterRequest {
+  login: string;
+  senha: string;
+  nome: string;
+  email: string;
+  role: string;
+}
 
 export default function RegisterPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Valores padrão para o formulário
-  const defaultValues: Partial<RegisterFormValues> = {
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    role: "",
-    institution: "",
-    acceptTerms: false,
-  };
-
-  // Configuração do formulário
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues,
+    defaultValues: {
+      nome: "",
+      email: "",
+      login: "",
+      senha: "",
+      confirmacaoSenha: "",
+      aceiteTermos: false,
+    },
   });
 
-  // Observar o campo role para lógica condicional
-  const watchRole = form.watch("role");
+  async function registerUser(
+    userData: RegisterRequest
+  ): Promise<RegisterResponse> {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-  // Função para lidar com o envio do formulário
+    const user = `{"login":"${userData.login}","senha":"${userData.senha}","nome":"${userData.nome}","email":"${userData.email}","role":"USER"}`;
+
+    const response = await fetch(`${apiUrl}/auth/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: user,
+    });
+
+    const responseData = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw {
+        message:
+          responseData.message ||
+          `Erro ${response.status}: ${response.statusText}`,
+        errors: responseData.errors || {},
+        status: response.status,
+      };
+    }
+
+    return responseData;
+  }
+
   async function onSubmit(values: RegisterFormValues) {
     setIsSubmitting(true);
 
     try {
-      // Simulação de envio (seria substituído pela chamada real à API)
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const registerData: RegisterRequest = {
+        login: values.login,
+        senha: values.senha,
+        nome: values.nome,
+        email: values.email,
+        role: "USER",
+      };
 
-      console.log("Dados do registro:", values);
+      await registerUser(registerData);
 
-      // Exibir mensagem de sucesso
-      Sonner({
-        title: "Registro realizado com sucesso!",
+      toast.success("Registro realizado com sucesso!", {
         description:
           "Sua conta foi criada. Você será redirecionado para o login.",
       });
 
-      // Redirecionar para o login
-      router.push("/login");
-    } catch (error) {
+      form.reset();
+
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 2000);
+    } catch (error: any) {
       console.error("Erro ao registrar:", error);
-      Sonner({
-        title: "Erro ao criar conta",
-        description: "Verifique os dados e tente novamente.",
-        variant: "destructive",
-      });
+
+      if (error.errors && typeof error.errors === "object") {
+        Object.keys(error.errors).forEach((key) => {
+          const fieldMap: Record<string, keyof RegisterFormValues> = {
+            login: "login",
+            senha: "senha",
+            nome: "nome",
+            email: "email",
+          };
+
+          const formField = fieldMap[key];
+          if (formField) {
+            form.setError(formField, {
+              type: "manual",
+              message: error.errors[key],
+            });
+          }
+        });
+      } else {
+        let errorMessage = "Verifique os dados e tente novamente.";
+
+        if (error.status === 400) {
+          errorMessage =
+            "Dados inválidos. Verifique as informações fornecidas.";
+        } else if (error.status === 409) {
+          errorMessage = "Email ou login já cadastrados. Tente outros dados.";
+        } else if (error.status === 422) {
+          errorMessage = "Dados não atendem aos critérios de validação.";
+        } else if (error.status === 500) {
+          errorMessage =
+            "Erro interno do servidor. Tente novamente mais tarde.";
+        } else if (
+          error.message.toLowerCase().includes("network") ||
+          error.message.toLowerCase().includes("fetch")
+        ) {
+          errorMessage =
+            "Erro de conexão. Verifique sua internet e tente novamente.";
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+
+        toast.error("Erro ao criar conta", {
+          description: errorMessage,
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -161,12 +239,16 @@ export default function RegisterPage() {
                 >
                   <FormField
                     control={form.control}
-                    name="name"
+                    name="nome"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Nome completo</FormLabel>
                         <FormControl>
-                          <Input placeholder="Nome Completo" {...field} />
+                          <Input
+                            placeholder="Digite seu nome completo"
+                            autoComplete="name"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -183,6 +265,7 @@ export default function RegisterPage() {
                           <Input
                             type="email"
                             placeholder="seu@email.com"
+                            autoComplete="email"
                             {...field}
                           />
                         </FormControl>
@@ -191,10 +274,31 @@ export default function RegisterPage() {
                     )}
                   />
 
+                  <FormField
+                    control={form.control}
+                    name="login"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Usuário</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Digite seu nome de usuário"
+                            autoComplete="username"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          Este será seu nome de usuário para fazer login
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   <div className="grid md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
-                      name="password"
+                      name="senha"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Senha</FormLabel>
@@ -202,9 +306,14 @@ export default function RegisterPage() {
                             <Input
                               type="password"
                               placeholder="••••••••"
+                              autoComplete="new-password"
                               {...field}
                             />
                           </FormControl>
+                          {/* <FormDescription className="text-xs">
+                            Mín. 8 caracteres, incluindo maiúscula, minúscula e
+                            número
+                          </FormDescription> */}
                           <FormMessage />
                         </FormItem>
                       )}
@@ -212,7 +321,7 @@ export default function RegisterPage() {
 
                     <FormField
                       control={form.control}
-                      name="confirmPassword"
+                      name="confirmacaoSenha"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Confirmar senha</FormLabel>
@@ -220,6 +329,7 @@ export default function RegisterPage() {
                             <Input
                               type="password"
                               placeholder="••••••••"
+                              autoComplete="new-password"
                               {...field}
                             />
                           </FormControl>
@@ -231,56 +341,7 @@ export default function RegisterPage() {
 
                   <FormField
                     control={form.control}
-                    name="role"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tipo de usuário</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione seu perfil" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="ALUNO">Aluno</SelectItem>
-                            <SelectItem value="PROFESSOR">Professor</SelectItem>
-                            <SelectItem value="EXTERNO">
-                              Colaborador Externo
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {(watchRole === "ALUNO" || watchRole === "PROFESSOR") && (
-                    <FormField
-                      control={form.control}
-                      name="institution"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Instituição</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Faculdade Biopark" {...field} />
-                          </FormControl>
-                          <FormDescription>
-                            {watchRole === "ALUNO"
-                              ? "Informe a instituição onde você estuda"
-                              : "Informe a instituição onde você leciona"}
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-
-                  <FormField
-                    control={form.control}
-                    name="acceptTerms"
+                    name="aceiteTermos"
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                         <FormControl>
@@ -294,18 +355,21 @@ export default function RegisterPage() {
                           <FormDescription>
                             Ao criar uma conta, você concorda com nossos{" "}
                             <Link
-                              href="#"
+                              href="/terms-of-service"
                               className="text-blue-600 hover:underline"
+                              target="_blank"
                             >
                               Termos de serviço
                             </Link>{" "}
                             e{" "}
                             <Link
-                              href="#"
+                              href="/privacy-policy"
                               className="text-blue-600 hover:underline"
+                              target="_blank"
                             >
                               Política de privacidade
-                            </Link>
+                            </Link>{" "}
+                            (LGPD)
                           </FormDescription>
                         </div>
                       </FormItem>
@@ -317,7 +381,7 @@ export default function RegisterPage() {
                     className="w-full"
                     disabled={isSubmitting}
                   >
-                    {isSubmitting ? "Processando..." : "Criar conta"}
+                    {isSubmitting ? "Criando conta..." : "Criar conta"}
                   </Button>
                 </form>
               </Form>
@@ -343,85 +407,27 @@ export default function RegisterPage() {
           <div className="max-w-md text-center text-white">
             <h1 className="text-4xl font-bold mb-4">Bem-vindo ao BioConnect</h1>
             <p className="text-xl text-blue-100 mb-8">
-              Gerencie seus projetos acadêmicos, eventos e monitorias de forma
-              eficiente e integrada.
+              Junte-se à comunidade acadêmica da Faculdade Biopark para
+              gerenciar projetos, eventos e monitorias.
             </p>
-
-            <div className="space-y-6">
-              <div className="flex items-center text-left">
-                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
-                  <svg
-                    className="w-6 h-6 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-semibold">Projetos Acadêmicos</h3>
-                  <p className="text-blue-100">
-                    Gerencie projetos de pesquisa e extensão em um só lugar.
-                  </p>
-                </div>
+            <div className="grid grid-cols-1 gap-4 text-sm">
+              <div className="bg-white/10 p-4 rounded-lg">
+                <h3 className="font-semibold mb-2">👨‍🎓 Alunos</h3>
+                <p className="text-blue-100">
+                  Consulte projetos, inscreva-se em eventos e monitorias
+                </p>
               </div>
-
-              <div className="flex items-center text-left">
-                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
-                  <svg
-                    className="w-6 h-6 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-semibold">
-                    Eventos Institucionais
-                  </h3>
-                  <p className="text-blue-100">
-                    Organize e participe de eventos com facilidade.
-                  </p>
-                </div>
+              <div className="bg-white/10 p-4 rounded-lg">
+                <h3 className="font-semibold mb-2">👨‍🏫 Professores</h3>
+                <p className="text-blue-100">
+                  Cadastre projetos de pesquisa e extensão, gerencie monitorias
+                </p>
               </div>
-
-              <div className="flex items-center text-left">
-                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
-                  <svg
-                    className="w-6 h-6 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                    />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-lg font-semibold">
-                    Monitorias Acadêmicas
-                  </h3>
-                  <p className="text-blue-100">
-                    Ofereça ou inscreva-se em monitorias acadêmicas.
-                  </p>
-                </div>
+              <div className="bg-white/10 p-4 rounded-lg">
+                <h3 className="font-semibold mb-2">👨‍💼 Coordenadores</h3>
+                <p className="text-blue-100">
+                  Aprove projetos e monitorias, organize eventos
+                </p>
               </div>
             </div>
           </div>

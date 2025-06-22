@@ -1,12 +1,13 @@
-// app/(dashboard)/monitorias/new/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useMonitorias, useMasterData } from "@/contexts/AppContext";
+import { MonitoriaData } from "@/services/api";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -29,12 +30,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Sonner } from "@/components/ui/sonner";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -47,178 +46,130 @@ import {
   GraduationCap,
   Book,
   School,
+  AlertCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 
-// Esquema de validação do formulário
 const monitoriaSchema = z.object({
-  disciplinaId: z.string({
-    required_error: "Selecione uma disciplina",
-  }),
-  cursoId: z.string({
-    required_error: "Selecione um curso",
-  }),
-  semestre: z.string({
-    required_error: "Selecione o semestre",
-  }),
-  cargaHoraria: z.string().min(1, {
-    message: "A carga horária é obrigatória",
-  }),
-  startDate: z.string({
-    required_error: "A data de início é obrigatória",
-  }),
-  endDate: z.string({
-    required_error: "A data de término é obrigatória",
-  }),
-  diasSemana: z.array(z.string()).min(1, {
-    message: "Selecione pelo menos um dia da semana",
-  }),
-  horarioInicio: z.string({
-    required_error: "O horário de início é obrigatório",
-  }),
-  horarioFim: z.string({
-    required_error: "O horário de término é obrigatório",
-  }),
+  disciplinaId: z.string().min(1, "Selecione uma disciplina"),
+  cursoId: z.string().min(1, "Selecione um curso"),
+  semestre: z.string().min(1, "Selecione o semestre"),
+  cargaHoraria: z.string().min(1, "A carga horária é obrigatória"),
+  dataInicio: z.string().min(1, "A data de início é obrigatória"),
+  dataTermino: z.string().min(1, "A data de término é obrigatória"),
+  diasSemana: z
+    .array(z.string())
+    .min(1, "Selecione pelo menos um dia da semana"),
+  horarioInicio: z.string().min(1, "O horário de início é obrigatório"),
+  horarioTermino: z.string().min(1, "O horário de término é obrigatório"),
   sala: z.string().optional(),
-  bolsa: z.boolean().default(false),
+  bolsa: z.boolean(),
   valorBolsa: z.string().optional(),
   requisitos: z.string().optional(),
   atividades: z.string().optional(),
   alunoPreSelecionado: z.string().optional(),
-  hasTerms: z.boolean().default(false),
+  termosAceitos: z
+    .boolean()
+    .refine((val) => val === true, "Você deve aceitar os termos"),
 });
 
 type MonitoriaFormValues = z.infer<typeof monitoriaSchema>;
 
-// Dados fictícios para os selects
-const mockDisciplinas = [
-  { id: "1", nome: "Algoritmos e Estruturas de Dados" },
-  { id: "2", nome: "Cálculo I" },
-  { id: "3", nome: "Bioquímica Celular" },
-  { id: "4", nome: "Anatomia Humana" },
-  { id: "5", nome: "Programação Web" },
-  { id: "6", nome: "Microbiologia" },
-];
-
-const mockCursos = [
-  { id: "1", nome: "Análise e Desenvolvimento de Sistemas" },
-  { id: "2", nome: "Engenharia de Software" },
-  { id: "3", nome: "Biotecnologia" },
-  { id: "4", nome: "Enfermagem" },
-  { id: "5", nome: "Engenharia" },
-];
-
 const diasSemana = [
-  { id: "dom", label: "Domingo" },
-  { id: "seg", label: "Segunda-feira" },
-  { id: "ter", label: "Terça-feira" },
-  { id: "qua", label: "Quarta-feira" },
-  { id: "qui", label: "Quinta-feira" },
-  { id: "sex", label: "Sexta-feira" },
-  { id: "sab", label: "Sábado" },
+  { id: "DOMINGO", label: "Domingo" },
+  { id: "SEGUNDA", label: "Segunda-feira" },
+  { id: "TERCA", label: "Terça-feira" },
+  { id: "QUARTA", label: "Quarta-feira" },
+  { id: "QUINTA", label: "Quinta-feira" },
+  { id: "SEXTA", label: "Sexta-feira" },
+  { id: "SABADO", label: "Sábado" },
 ];
+
+const semestres = ["2024/1", "2024/2", "2025/1", "2025/2", "2026/1", "2026/2"];
 
 export default function NewMonitoriaPage() {
   const router = useRouter();
+  const { createMonitoria } = useMonitorias();
+  const {
+    disciplinas,
+    cursos,
+    fetchMasterData,
+    loading: masterDataLoading,
+  } = useMasterData();
+
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState("info");
+  const [activeTab, setActiveTab] = useState("basicas");
 
-  // Valores padrão para o formulário
-  const defaultValues: Partial<MonitoriaFormValues> = {
-    disciplinaId: "",
-    cursoId: "",
-    semestre: "",
-    cargaHoraria: "",
-    startDate: "",
-    endDate: "",
-    diasSemana: [],
-    horarioInicio: "",
-    horarioFim: "",
-    sala: "",
-    bolsa: false,
-    valorBolsa: "",
-    requisitos: "",
-    atividades: "",
-    alunoPreSelecionado: "",
-    hasTerms: false,
-  };
-
-  // Configuração do formulário
   const form = useForm<MonitoriaFormValues>({
     resolver: zodResolver(monitoriaSchema),
-    defaultValues,
+    defaultValues: {
+      disciplinaId: "",
+      cursoId: "",
+      semestre: "",
+      cargaHoraria: "",
+      dataInicio: "",
+      dataTermino: "",
+      diasSemana: [],
+      horarioInicio: "",
+      horarioTermino: "",
+      sala: "",
+      bolsa: false,
+      valorBolsa: "",
+      requisitos: "",
+      atividades: "",
+      alunoPreSelecionado: "",
+      termosAceitos: false,
+    },
   });
 
-  // Observar campos para lógica condicional
-  const watchBolsa = form.watch("bolsa");
+  const bolsa = form.watch("bolsa");
+  const diasSelecionados = form.watch("diasSemana");
 
-  // Função para lidar com o envio do formulário
+  useEffect(() => {
+    fetchMasterData();
+  }, []);
+
+  const toggleDiaSemana = (dia: string) => {
+    const currentDias = form.getValues("diasSemana");
+    const novosDias = currentDias.includes(dia)
+      ? currentDias.filter((d) => d !== dia)
+      : [...currentDias, dia];
+
+    form.setValue("diasSemana", novosDias);
+  };
+
   async function onSubmit(values: MonitoriaFormValues) {
     setIsSubmitting(true);
 
     try {
-      // Verificar se a data de término é posterior à de início
-      if (new Date(values.endDate) <= new Date(values.startDate)) {
-        Sonner({
-          title: "Erro de validação",
-          description: "A data de término deve ser posterior à data de início.",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Verificar se o horário de término é posterior ao de início
-      const [horaInicio, minInicio] = values.horarioInicio
-        .split(":")
-        .map(Number);
-      const [horaFim, minFim] = values.horarioFim.split(":").map(Number);
-
-      if (
-        horaFim < horaInicio ||
-        (horaFim === horaInicio && minFim <= minInicio)
-      ) {
-        Sonner({
-          title: "Erro de validação",
-          description:
-            "O horário de término deve ser posterior ao horário de início.",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Dados processados da monitoria
-      const monitoriaData = {
-        ...values,
+      const monitoriaData: MonitoriaData = {
+        disciplinaId: parseInt(values.disciplinaId),
+        cursoId: parseInt(values.cursoId),
+        semestre: values.semestre,
         cargaHoraria: parseInt(values.cargaHoraria),
+        dataInicio: values.dataInicio,
+        dataTermino: values.dataTermino,
+        diasSemana: values.diasSemana,
+        horarioInicio: values.horarioInicio,
+        horarioTermino: values.horarioTermino,
+        sala: values.sala || "",
+        bolsa: values.bolsa,
         valorBolsa:
           values.bolsa && values.valorBolsa
-            ? parseFloat(
-                values.valorBolsa.replace(/[^\d.,]/g, "").replace(",", ".")
-              )
-            : null,
+            ? parseFloat(values.valorBolsa)
+            : undefined,
+        requisitos: values.requisitos || "",
+        atividades: values.atividades || "",
+        alunoPreSelecionado: values.alunoPreSelecionado || "",
+        termosAceitos: values.termosAceitos,
       };
 
-      // Simulação de envio (seria substituído pela chamada real à API)
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      console.log("Dados da monitoria:", monitoriaData);
-
-      // Exibir mensagem de sucesso
-      Sonner({
-        title: "Monitoria cadastrada com sucesso!",
-        description: "A monitoria foi enviada para aprovação.",
-      });
-
-      // Redirecionar para a lista de monitorias
+      await createMonitoria(monitoriaData);
+      toast.success("Monitoria criada com sucesso!");
       router.push("/monitorias");
     } catch (error) {
-      console.error("Erro ao cadastrar monitoria:", error);
-      Sonner({
-        title: "Erro ao cadastrar monitoria",
-        description: "Verifique os dados e tente novamente.",
-        variant: "destructive",
-      });
+      console.error("Erro ao criar monitoria:", error);
+      toast.error("Erro ao criar monitoria. Tente novamente.");
     } finally {
       setIsSubmitting(false);
     }
@@ -226,46 +177,66 @@ export default function NewMonitoriaPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center">
-          <Link href="/monitorias">
-            <Button variant="ghost" size="icon" className="mr-2">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold">Nova Monitoria</h1>
-            <p className="text-muted-foreground">
-              Cadastre uma nova monitoria acadêmica
-            </p>
-          </div>
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Link href="/monitorias">
+          <Button variant="ghost" size="icon">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-3xl font-bold">Nova Monitoria</h1>
+          <p className="text-muted-foreground">
+            Crie uma nova oportunidade de monitoria
+          </p>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Formulário de Cadastro de Monitoria</CardTitle>
-          <CardDescription>
-            Preencha as informações da monitoria. Os campos marcados com * são
-            obrigatórios.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+      {/* Loading Master Data */}
+      {masterDataLoading && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+            <p className="text-blue-800 text-sm">
+              Carregando disciplinas e cursos...
+            </p>
+          </div>
+        </div>
+      )}
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="space-y-4"
+          >
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="info">Informações Básicas</TabsTrigger>
-              <TabsTrigger value="horarios">Horários</TabsTrigger>
-              <TabsTrigger value="extras">Informações Adicionais</TabsTrigger>
+              <TabsTrigger value="basicas">
+                <Book className="mr-2 h-4 w-4" />
+                Básicas
+              </TabsTrigger>
+              <TabsTrigger value="horarios">
+                <Clock className="mr-2 h-4 w-4" />
+                Horários
+              </TabsTrigger>
+              <TabsTrigger value="detalhes">
+                <GraduationCap className="mr-2 h-4 w-4" />
+                Detalhes
+              </TabsTrigger>
             </TabsList>
 
-            <Form {...form}>
-              <form
-                id="monitoria-form"
-                onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-8 mt-4"
-              >
-                <TabsContent value="info" className="space-y-4">
-                  <div className="grid md:grid-cols-2 gap-4">
+            {/* Tab: Informações Básicas */}
+            <TabsContent value="basicas">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Informações Básicas</CardTitle>
+                  <CardDescription>
+                    Dados principais da monitoria
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="disciplinaId"
@@ -278,16 +249,16 @@ export default function NewMonitoriaPage() {
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Selecione uma disciplina" />
+                                <SelectValue placeholder="Selecione a disciplina" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {mockDisciplinas.map((disciplina) => (
+                              {disciplinas.map((disciplina) => (
                                 <SelectItem
                                   key={disciplina.id}
-                                  value={disciplina.id}
+                                  value={disciplina.id.toString()}
                                 >
-                                  {disciplina.nome}
+                                  {disciplina.nome} ({disciplina.codigo})
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -309,12 +280,15 @@ export default function NewMonitoriaPage() {
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Selecione um curso" />
+                                <SelectValue placeholder="Selecione o curso" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {mockCursos.map((curso) => (
-                                <SelectItem key={curso.id} value={curso.id}>
+                              {cursos.map((curso) => (
+                                <SelectItem
+                                  key={curso.id}
+                                  value={curso.id.toString()}
+                                >
                                   {curso.nome}
                                 </SelectItem>
                               ))}
@@ -324,9 +298,7 @@ export default function NewMonitoriaPage() {
                         </FormItem>
                       )}
                     />
-                  </div>
 
-                  <div className="grid md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="semestre"
@@ -339,13 +311,15 @@ export default function NewMonitoriaPage() {
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Selecione um semestre" />
+                                <SelectValue placeholder="Selecione o semestre" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="2025/1">2025/1</SelectItem>
-                              <SelectItem value="2025/2">2025/2</SelectItem>
-                              <SelectItem value="2026/1">2026/1</SelectItem>
+                              {semestres.map((semestre) => (
+                                <SelectItem key={semestre} value={semestre}>
+                                  {semestre}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -358,37 +332,28 @@ export default function NewMonitoriaPage() {
                       name="cargaHoraria"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Carga Horária Semanal (horas) *</FormLabel>
+                          <FormLabel>Carga Horária (horas) *</FormLabel>
                           <FormControl>
-                            <div className="relative">
-                              <Clock className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                              <Input
-                                type="number"
-                                placeholder="Ex: 20"
-                                className="pl-8"
-                                min="1"
-                                {...field}
-                              />
-                            </div>
+                            <Input
+                              type="number"
+                              min="1"
+                              placeholder="Ex: 60"
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  </div>
 
-                  <div className="grid md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
-                      name="startDate"
+                      name="dataInicio"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Data de Início *</FormLabel>
                           <FormControl>
-                            <div className="relative">
-                              <Calendar className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                              <Input type="date" className="pl-8" {...field} />
-                            </div>
+                            <Input type="date" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -397,90 +362,62 @@ export default function NewMonitoriaPage() {
 
                     <FormField
                       control={form.control}
-                      name="endDate"
+                      name="dataTermino"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Data de Término *</FormLabel>
                           <FormControl>
-                            <div className="relative">
-                              <Calendar className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                              <Input type="date" className="pl-8" {...field} />
-                            </div>
+                            <Input type="date" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                  <div className="flex justify-end">
-                    <Button
-                      type="button"
-                      onClick={() => setActiveTab("horarios")}
-                    >
-                      Próximo
-                    </Button>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="horarios" className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="diasSemana"
-                    render={() => (
-                      <FormItem>
-                        <div className="mb-4">
-                          <FormLabel className="text-base">
-                            Dias da Semana *
-                          </FormLabel>
-                          <FormDescription>
-                            Selecione os dias em que a monitoria será oferecida
-                          </FormDescription>
+            {/* Tab: Horários */}
+            <TabsContent value="horarios">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Horários e Local</CardTitle>
+                  <CardDescription>
+                    Configure os dias, horários e local da monitoria
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <FormLabel>Dias da Semana *</FormLabel>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                      {diasSemana.map((dia) => (
+                        <div
+                          key={dia.id}
+                          className="flex items-center space-x-2"
+                        >
+                          <Checkbox
+                            id={dia.id}
+                            checked={diasSelecionados.includes(dia.id)}
+                            onCheckedChange={() => toggleDiaSemana(dia.id)}
+                          />
+                          <label
+                            htmlFor={dia.id}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {dia.label}
+                          </label>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                          {diasSemana.map((dia) => (
-                            <FormField
-                              key={dia.id}
-                              control={form.control}
-                              name="diasSemana"
-                              render={({ field }) => {
-                                return (
-                                  <FormItem
-                                    key={dia.id}
-                                    className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"
-                                  >
-                                    <FormControl>
-                                      <Checkbox
-                                        checked={field.value?.includes(dia.id)}
-                                        onCheckedChange={(checked) => {
-                                          return checked
-                                            ? field.onChange([
-                                                ...field.value,
-                                                dia.id,
-                                              ])
-                                            : field.onChange(
-                                                field.value?.filter(
-                                                  (value) => value !== dia.id
-                                                )
-                                              );
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormLabel className="font-normal cursor-pointer">
-                                      {dia.label}
-                                    </FormLabel>
-                                  </FormItem>
-                                );
-                              }}
-                            />
-                          ))}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
+                      ))}
+                    </div>
+                    {form.formState.errors.diasSemana && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {form.formState.errors.diasSemana.message}
+                      </p>
                     )}
-                  />
+                  </div>
 
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField
                       control={form.control}
                       name="horarioInicio"
@@ -488,10 +425,7 @@ export default function NewMonitoriaPage() {
                         <FormItem>
                           <FormLabel>Horário de Início *</FormLabel>
                           <FormControl>
-                            <div className="relative">
-                              <Clock className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                              <Input type="time" className="pl-8" {...field} />
-                            </div>
+                            <Input type="time" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -500,90 +434,73 @@ export default function NewMonitoriaPage() {
 
                     <FormField
                       control={form.control}
-                      name="horarioFim"
+                      name="horarioTermino"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Horário de Término *</FormLabel>
                           <FormControl>
-                            <div className="relative">
-                              <Clock className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                              <Input type="time" className="pl-8" {...field} />
-                            </div>
+                            <Input type="time" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="sala"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Sala (Opcional)</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Ex: Lab 01, Sala 203"
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                  <FormField
-                    control={form.control}
-                    name="sala"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Sala/Local</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <School className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              placeholder="Ex: Laboratório de Informática - Bloco A"
-                              className="pl-8"
-                              {...field}
-                            />
-                          </div>
-                        </FormControl>
-                        <FormDescription>
-                          Informe o local onde a monitoria será realizada
-                          (opcional)
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="flex justify-between">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setActiveTab("info")}
-                    >
-                      Voltar
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => setActiveTab("extras")}
-                    >
-                      Próximo
-                    </Button>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="extras" className="space-y-4">
+            {/* Tab: Detalhes */}
+            <TabsContent value="detalhes">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Detalhes da Monitoria</CardTitle>
+                  <CardDescription>
+                    Informações adicionais e requisitos
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <FormField
                     control={form.control}
                     name="bolsa"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
                           <FormLabel className="text-base">
                             Monitoria com Bolsa
                           </FormLabel>
                           <FormDescription>
-                            Marque esta opção se a monitoria oferece bolsa de
-                            auxílio
+                            Esta monitoria oferece bolsa aos monitores?
                           </FormDescription>
                         </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
                       </FormItem>
                     )}
                   />
 
-                  {watchBolsa && (
+                  {bolsa && (
                     <FormField
                       control={form.control}
                       name="valorBolsa"
@@ -592,8 +509,10 @@ export default function NewMonitoriaPage() {
                           <FormLabel>Valor da Bolsa (R$)</FormLabel>
                           <FormControl>
                             <Input
-                              type="text"
-                              placeholder="Ex: 400,00"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="0,00"
                               {...field}
                             />
                           </FormControl>
@@ -608,18 +527,14 @@ export default function NewMonitoriaPage() {
                     name="requisitos"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Requisitos para o Monitor</FormLabel>
+                        <FormLabel>Requisitos (Opcional)</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Ex: Ter cursado a disciplina com nota maior que 8,0; Conhecimentos em..."
+                            placeholder="Ex: Ter cursado a disciplina com aproveitamento mínimo de 8.0"
                             className="min-h-[100px]"
                             {...field}
                           />
                         </FormControl>
-                        <FormDescription>
-                          Descreva os requisitos necessários para candidatura à
-                          vaga
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -630,18 +545,14 @@ export default function NewMonitoriaPage() {
                     name="atividades"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Atividades do Monitor</FormLabel>
+                        <FormLabel>Atividades (Opcional)</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Ex: Auxiliar alunos com dúvidas; Preparar material de apoio..."
+                            placeholder="Ex: Auxiliar nas aulas práticas, tirar dúvidas dos alunos"
                             className="min-h-[100px]"
                             {...field}
                           />
                         </FormControl>
-                        <FormDescription>
-                          Descreva as atividades que serão realizadas pelo
-                          monitor
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -652,82 +563,74 @@ export default function NewMonitoriaPage() {
                     name="alunoPreSelecionado"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Aluno Pré-selecionado</FormLabel>
+                        <FormLabel>Aluno Pré-selecionado (Opcional)</FormLabel>
                         <FormControl>
-                          <div className="relative">
-                            <GraduationCap className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              placeholder="Nome ou Matrícula do Aluno"
-                              className="pl-8"
-                              {...field}
-                            />
-                          </div>
+                          <Input
+                            placeholder="Nome completo do aluno"
+                            {...field}
+                          />
                         </FormControl>
-                        <FormDescription>
-                          Se houver um aluno já indicado para a monitoria,
-                          informe aqui
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-
-                  <FormField
-                    control={form.control}
-                    name="hasTerms"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>Termos e Condições</FormLabel>
-                          <FormDescription>
-                            Declaro que as informações fornecidas são
-                            verdadeiras e que a monitoria está de acordo com as
-                            normas da instituição.
-                          </FormDescription>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="flex justify-between">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setActiveTab("horarios")}
-                    >
-                      Voltar
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={isSubmitting || !form.formState.isValid}
-                    >
-                      {isSubmitting ? "Enviando..." : "Cadastrar Monitoria"}
-                      <Save className="ml-2 h-4 w-4" />
-                    </Button>
-                  </div>
-                </TabsContent>
-              </form>
-            </Form>
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
-        </CardContent>
-        <CardFooter className="border-t pt-6 flex justify-between">
-          <p className="text-sm text-muted-foreground">* Campos obrigatórios</p>
-          <div className="flex space-x-2">
-            <Link href="/monitorias">
-              <Button variant="outline">Cancelar</Button>
-            </Link>
-            <Button form="monitoria-form" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Enviando..." : "Salvar Monitoria"}
-            </Button>
-          </div>
-        </CardFooter>
-      </Card>
+
+          {/* Termos e Ações */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="termosAceitos"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Aceito os termos e condições *</FormLabel>
+                        <FormDescription>
+                          Estou ciente das responsabilidades da monitoria.
+                        </FormDescription>
+                        <FormMessage />
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex justify-between pt-4">
+                  <Link href="/monitorias">
+                    <Button variant="outline" disabled={isSubmitting}>
+                      Cancelar
+                    </Button>
+                  </Link>
+
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Criando...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        Criar Monitoria
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </form>
+      </Form>
     </div>
   );
 }

@@ -1,4 +1,3 @@
-// app/(auth)/recover-password/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -30,7 +29,6 @@ import {
 } from "@/components/ui/card";
 import { ArrowLeft, Check } from "lucide-react";
 
-// Esquema de validação do formulário
 const recoverSchema = z.object({
   email: z.string().email({
     message: "Email inválido",
@@ -44,35 +42,29 @@ export default function RecoverPasswordPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  // Valores padrão para o formulário
   const defaultValues: Partial<RecoverFormValues> = {
     email: "",
   };
 
-  // Configuração do formulário
   const form = useForm<RecoverFormValues>({
     resolver: zodResolver(recoverSchema),
     defaultValues,
   });
 
-  // Função para lidar com o envio do formulário
   async function onSubmit(values: RecoverFormValues) {
     setIsSubmitting(true);
 
     try {
-      // Simulação de envio (seria substituído pela chamada real à API)
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       console.log("Email para recuperação:", values.email);
 
-      // Exibir mensagem de sucesso
       Sonner({
         title: "Solicitação enviada",
         description:
           "Verifique seu email para instruções de recuperação de senha.",
       });
 
-      // Atualizar estado para mostrar a mensagem de sucesso
       setIsSuccess(true);
     } catch (error) {
       console.error("Erro na recuperação de senha:", error);
