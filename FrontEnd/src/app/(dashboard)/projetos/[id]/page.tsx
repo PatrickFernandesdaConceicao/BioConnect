@@ -1,10 +1,10 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useProjetos } from "@/contexts/AppContext";
 import { useAuth } from "@/lib/auth";
-import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -16,95 +16,159 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft,
   Edit,
+  Trash2,
   Calendar,
   DollarSign,
   Users,
+  MapPin,
   FileText,
-  ExternalLink,
   Target,
   BookOpen,
+  Mail,
+  Globe,
   AlertCircle,
+  Loader2,
+  CheckCircle,
+  Clock,
 } from "lucide-react";
-import { format } from "date-fns";
+import { toast } from "sonner";
+import { format, isAfter, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export default function ProjetoViewPage() {
   const params = useParams();
   const router = useRouter();
-  const { projetos, fetchProjetos } = useProjetos();
   const { user } = useAuth();
+  const { projetos, deleteProjeto, fetchProjetos } = useProjetos();
 
-  const [isLoading, setIsLoading] = useState(true);
   const [projeto, setProjeto] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
-  const projetoId = params.id as string;
+  const projetoId = parseInt(params.id as string);
 
   useEffect(() => {
-    const loadProjeto = async () => {
-      if (projetos.length === 0) {
-        await fetchProjetos();
-      }
+    loadProjeto();
+  }, [projetoId, projetos]);
 
-      const projetoEncontrado = projetos.find(
-        (p) => p.id.toString() === projetoId
-      );
+  const loadProjeto = async () => {
+    try {
+      setLoading(true);
+
+      // Primeiro tentar encontrar nos dados já carregados
+      const projetoEncontrado = projetos.find((p) => p.id === projetoId);
+
       if (projetoEncontrado) {
         setProjeto(projetoEncontrado);
+        setLoading(false);
+        return;
       }
-      setIsLoading(false);
-    };
 
-    loadProjeto();
-  }, [projetoId, projetos, fetchProjetos]);
+      // Se não encontrado, buscar todos os projetos
+      await fetchProjetos();
 
-  const getStatusBadge = (status?: string) => {
-    const statusConfig = {
-      PENDENTE: {
-        label: "Pendente",
-        variant: "secondary" as const,
-        color: "bg-yellow-100 text-yellow-800",
-      },
-      APROVADO: {
-        label: "Aprovado",
-        variant: "default" as const,
-        color: "bg-blue-100 text-blue-800",
-      },
-      EM_ANDAMENTO: {
-        label: "Em Andamento",
-        variant: "default" as const,
-        color: "bg-green-100 text-green-800",
-      },
-      CONCLUIDO: {
-        label: "Concluído",
-        variant: "outline" as const,
-        color: "bg-gray-100 text-gray-800",
-      },
-      REJEITADO: {
-        label: "Rejeitado",
-        variant: "destructive" as const,
-        color: "bg-red-100 text-red-800",
-      },
-    };
+      // Tentar novamente após fetch
+      const projetoAposFetch = projetos.find((p) => p.id === projetoId);
 
-    const config = statusConfig[status as keyof typeof statusConfig] || {
-      label: "Indefinido",
-      variant: "secondary" as const,
-      color: "bg-gray-100 text-gray-800",
-    };
-
-    return <Badge className={config.color}>{config.label}</Badge>;
+      if (projetoAposFetch) {
+        setProjeto(projetoAposFetch);
+      } else {
+        toast.error("Projeto não encontrado");
+        router.push("/projetos");
+      }
+    } catch (error: any) {
+      console.error("Erro ao carregar projeto:", error);
+      toast.error("Erro ao carregar projeto", {
+        description: error.message || "Tente novamente.",
+      });
+      router.push("/projetos");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (isLoading) {
+  const handleDelete = async () => {
+    if (!projeto) return;
+
+    try {
+      setDeleting(true);
+      await deleteProjeto(projeto.id);
+      router.push("/projetos");
+    } catch (error: any) {
+      console.error("Erro ao excluir projeto:", error);
+      toast.error("Erro ao excluir projeto", {
+        description: error.message || "Tente novamente.",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const getStatusBadge = (dataInicio: string, dataTermino: string) => {
+    const hoje = new Date();
+    const inicio = new Date(dataInicio);
+    const fim = new Date(dataTermino);
+
+    if (isBefore(hoje, inicio)) {
+      return (
+        <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+          <Clock className="w-3 h-3 mr-1" />
+          Aguardando
+        </Badge>
+      );
+    } else if (isAfter(hoje, fim)) {
+      return (
+        <Badge variant="secondary" className="bg-gray-100 text-gray-800">
+          <CheckCircle className="w-3 h-3 mr-1" />
+          Finalizado
+        </Badge>
+      );
+    } else {
+      return (
+        <Badge variant="default" className="bg-green-100 text-green-800">
+          <Target className="w-3 h-3 mr-1" />
+          Em Andamento
+        </Badge>
+      );
+    }
+  };
+
+  const canEdit = () => {
+    if (!user || !projeto) return false;
+
+    // Admin pode editar qualquer projeto
+    if (user.tipo === "ADMIN") return true;
+
+    // Criador do projeto pode editar
+    return projeto.usuario?.id === user.id;
+  };
+
+  const canDelete = () => {
+    if (!user || !projeto) return false;
+
+    // Apenas admin pode excluir
+    return user.tipo === "ADMIN";
+  };
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-sm text-muted-foreground">
-            Carregando projeto...
-          </p>
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto" />
+          <p className="mt-2 text-muted-foreground">Carregando projeto...</p>
         </div>
       </div>
     );
@@ -112,18 +176,15 @@ export default function ProjetoViewPage() {
 
   if (!projeto) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+      <div className="p-6">
+        <div className="text-center py-12">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">Projeto não encontrado</h3>
           <p className="text-muted-foreground mb-4">
             O projeto que você está procurando não existe ou foi removido.
           </p>
           <Link href="/projetos">
-            <Button>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Voltar para Projetos
-            </Button>
+            <Button>Voltar para Projetos</Button>
           </Link>
         </div>
       </div>
@@ -131,104 +192,86 @@ export default function ProjetoViewPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="p-6 space-y-6">
+      {/* Cabeçalho */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center space-x-4">
           <Link href="/projetos">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="sm" className="gap-2">
               <ArrowLeft className="h-4 w-4" />
+              Voltar
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold">{projeto.titulo}</h1>
-            <p className="text-muted-foreground flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              {projeto.tipoProjeto} • {projeto.areaConhecimento}
+            <h1 className="text-2xl font-bold text-slate-900">
+              {projeto.titulo}
+            </h1>
+            <p className="text-muted-foreground">
+              Criado em{" "}
+              {format(
+                new Date(projeto.dataCriacao || new Date()),
+                "dd/MM/yyyy",
+                { locale: ptBR }
+              )}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {getStatusBadge(projeto.status)}
-          <Link href={`/projetos/${projeto.id}/edit`}>
-            <Button>
-              <Edit className="mr-2 h-4 w-4" />
-              Editar
-            </Button>
-          </Link>
+        <div className="flex items-center space-x-2">
+          {getStatusBadge(projeto.dataInicio, projeto.dataTermino)}
+
+          {canEdit() && (
+            <Link href={`/projetos/${projeto.id}/edit`}>
+              <Button variant="outline" size="sm">
+                <Edit className="h-4 w-4 mr-2" />
+                Editar
+              </Button>
+            </Link>
+          )}
+
+          {canDelete() && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Excluir
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tem certeza que deseja excluir o projeto "{projeto.titulo}"?
+                    Esta ação não pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    {deleting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Excluindo...
+                      </>
+                    ) : (
+                      "Excluir"
+                    )}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </div>
 
-      {/* Informações Principais */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Período</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {projeto.dataInicio && projeto.dataTermino ? (
-                <>
-                  {format(new Date(projeto.dataInicio), "dd/MM/yyyy", {
-                    locale: ptBR,
-                  })}
-                  <span className="text-sm font-normal text-muted-foreground">
-                    {"   "}a{"   "}
-                  </span>
-                  {format(new Date(projeto.dataTermino), "dd/MM/yyyy", {
-                    locale: ptBR,
-                  })}
-                </>
-              ) : (
-                "Não definido"
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Data de início e término
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Orçamento</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {projeto.possuiOrcamento
-                ? `R$ ${projeto.orcamento?.toLocaleString() || "0"}`
-                : "Sem orçamento"}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {projeto.possuiOrcamento ? "Valor total" : "Projeto sem recursos"}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Participantes</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {projeto.emailsParticipantes?.length || 0} /{" "}
-              {projeto.limiteParticipantes}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Atual / Limite máximo
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Conteúdo Principal */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Descrição e Detalhes */}
-        <div className="space-y-6">
+      <div className="grid gap-6 md:grid-cols-3">
+        {/* Conteúdo Principal */}
+        <div className="md:col-span-2 space-y-6">
+          {/* Descrição */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -237,12 +280,13 @@ export default function ProjetoViewPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground leading-relaxed">
-                {projeto.descricao || "Nenhuma descrição fornecida."}
+              <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">
+                {projeto.descricao}
               </p>
             </CardContent>
           </Card>
 
+          {/* Objetivos */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -251,66 +295,173 @@ export default function ProjetoViewPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground leading-relaxed">
-                {projeto.objetivos || "Nenhum objetivo definido."}
+              <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">
+                {projeto.objetivos}
               </p>
             </CardContent>
           </Card>
 
+          {/* Justificativa */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
                 <BookOpen className="mr-2 h-5 w-5" />
-                Metodologia
+                Justificativa
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground leading-relaxed">
-                {projeto.metodologia || "Metodologia não especificada."}
+              <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">
+                {projeto.justificativa}
               </p>
             </CardContent>
           </Card>
+
+          {/* Metodologia */}
+          {projeto.metodologia && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Metodologia</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">
+                  {projeto.metodologia}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Resultados Esperados */}
+          {projeto.resultadosEsperados && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Resultados Esperados</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">
+                  {projeto.resultadosEsperados}
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        {/* Informações Laterais */}
+        {/* Sidebar com informações */}
         <div className="space-y-6">
+          {/* Informações Básicas */}
           <Card>
             <CardHeader>
-              <CardTitle>Justificativa</CardTitle>
+              <CardTitle>Informações Básicas</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground leading-relaxed">
-                {projeto.justificativa || "Nenhuma justificativa fornecida."}
-              </p>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Período</p>
+                  <p className="text-sm text-muted-foreground">
+                    {format(new Date(projeto.dataInicio), "dd/MM/yyyy", {
+                      locale: ptBR,
+                    })}{" "}
+                    -{" "}
+                    {format(new Date(projeto.dataTermino), "dd/MM/yyyy", {
+                      locale: ptBR,
+                    })}
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center space-x-2">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Área de Conhecimento</p>
+                  <p className="text-sm text-muted-foreground">
+                    {projeto.areaConhecimento}
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center space-x-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Limite de Participantes</p>
+                  <p className="text-sm text-muted-foreground">
+                    {projeto.limiteParticipantes} pessoas
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center space-x-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Tipo de Projeto</p>
+                  <p className="text-sm text-muted-foreground">
+                    {projeto.tipoProjeto}
+                  </p>
+                </div>
+              </div>
+
+              {projeto.possuiOrcamento && (
+                <>
+                  <Separator />
+                  <div className="flex items-center space-x-2">
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium">Orçamento</p>
+                      <p className="text-sm text-muted-foreground">
+                        R${" "}
+                        {projeto.orcamento?.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                        }) || "0,00"}
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {projeto.urlEdital && (
+                <>
+                  <Separator />
+                  <div className="flex items-center space-x-2">
+                    <Globe className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium">Edital</p>
+                      <a
+                        href={projeto.urlEdital}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-600 hover:text-blue-800 underline"
+                      >
+                        Acessar edital
+                      </a>
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Resultados Esperados</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground leading-relaxed">
-                {projeto.resultadosEsperados || "Resultados não especificados."}
-              </p>
-            </CardContent>
-          </Card>
+          {/* Público Alvo */}
+          {projeto.publicoAlvo && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Público Alvo</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-slate-700">{projeto.publicoAlvo}</p>
+              </CardContent>
+            </Card>
+          )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Público-Alvo</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground leading-relaxed">
-                {projeto.publicoAlvo || "Público-alvo não especificado."}
-              </p>
-            </CardContent>
-          </Card>
-
+          {/* Palavras-chave */}
           {projeto.palavrasChave && (
             <Card>
               <CardHeader>
-                <CardTitle>Palavras-Chave</CardTitle>
+                <CardTitle>Palavras-chave</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
@@ -325,107 +476,64 @@ export default function ProjetoViewPage() {
               </CardContent>
             </Card>
           )}
-        </div>
-      </div>
 
-      {/* Participantes */}
-      {projeto.emailsParticipantes &&
-        projeto.emailsParticipantes.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Users className="mr-2 h-5 w-5" />
-                Participantes ({projeto.emailsParticipantes.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-2 md:grid-cols-2">
-                {projeto.emailsParticipantes.map(
-                  (email: string, index: number) => (
+          {/* Participantes */}
+          {projeto.emailsParticipantes && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Users className="mr-2 h-4 w-4" />
+                  Participantes
+                </CardTitle>
+                <CardDescription>
+                  {Array.isArray(projeto.emailsParticipantes)
+                    ? projeto.emailsParticipantes.length
+                    : projeto.emailsParticipantes
+                        .split(";")
+                        .filter((email: string) => email.trim()).length}{" "}
+                  participante(s)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {(Array.isArray(projeto.emailsParticipantes)
+                    ? projeto.emailsParticipantes
+                    : projeto.emailsParticipantes
+                        .split(";")
+                        .map((email: string) => email.trim())
+                        .filter((email: any) => email)
+                  ).map((email: string, index: number) => (
                     <div
                       key={index}
-                      className="flex items-center p-2 bg-muted rounded-lg"
+                      className="flex items-center space-x-2 p-2 bg-slate-50 rounded-lg"
                     >
-                      <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center mr-3">
-                        <Users className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{email}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Participante
-                        </p>
-                      </div>
+                      <Mail className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                      <span className="text-sm break-all">{email}</span>
                     </div>
-                  )
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-      {/* Informações Adicionais */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Informações Adicionais</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <h4 className="font-medium mb-2">Responsável</h4>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                  <Users className="h-4 w-4 text-primary" />
+                  ))}
                 </div>
-                <div>
-                  <p className="text-sm font-medium">
-                    {projeto.usuario?.nome || user?.nome}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {projeto.usuario?.email || user?.email}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Criador */}
+          {projeto.usuario && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Criado por</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <p className="font-medium">{projeto.usuario.nome}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {projeto.usuario.email}
                   </p>
                 </div>
-              </div>
-            </div>
-
-            {projeto.urlEdital && (
-              <div>
-                <h4 className="font-medium mb-2">Edital</h4>
-                <a
-                  href={projeto.urlEdital}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center text-primary hover:underline"
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Acessar Edital
-                </a>
-              </div>
-            )}
-
-            <div>
-              <h4 className="font-medium mb-2">Data de Criação</h4>
-              <p className="text-sm text-muted-foreground">
-                {projeto.dataCriacao
-                  ? format(
-                      new Date(projeto.dataCriacao),
-                      "dd/MM/yyyy 'às' HH:mm",
-                      { locale: ptBR }
-                    )
-                  : "Não disponível"}
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-medium mb-2">Termos Aceitos</h4>
-              <Badge
-                variant={projeto.aceitouTermos ? "default" : "destructive"}
-              >
-                {projeto.aceitouTermos ? "Sim" : "Não"}
-              </Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

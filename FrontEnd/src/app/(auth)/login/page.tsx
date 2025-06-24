@@ -448,7 +448,7 @@ export default function LoginPage() {
             <CardFooter className="flex flex-col space-y-2">
               <div className="text-center text-sm text-muted-foreground">
                 <Link
-                  href="/auth/recover-password"
+                  href="/recover-password"
                   className="underline underline-offset-4 hover:text-primary"
                 >
                   Esqueceu sua senha?
@@ -457,7 +457,7 @@ export default function LoginPage() {
               <div className="text-center text-sm text-muted-foreground">
                 Não tem uma conta?{" "}
                 <Link
-                  href="/auth/register"
+                  href="/register"
                   className="underline underline-offset-4 hover:text-primary"
                 >
                   Criar conta
@@ -469,29 +469,7 @@ export default function LoginPage() {
       </div>
 
       {/* Seção lateral com imagem/informações */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 to-indigo-700 items-center justify-center p-8">
-        <div className="text-center text-white">
-          <h2 className="text-4xl font-bold mb-4">BioConnect</h2>
-          <p className="text-xl text-blue-100 mb-8 max-w-md">
-            Sistema integrado para gestão de projetos acadêmicos, eventos e
-            monitorias
-          </p>
-          <div className="grid grid-cols-1 gap-4 max-w-xs">
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
-              <h3 className="font-semibold mb-2">Gestão Completa</h3>
-              <p className="text-sm text-blue-100">
-                Projetos, eventos e monitorias em um só lugar
-              </p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
-              <h3 className="font-semibold mb-2">Segurança</h3>
-              <p className="text-sm text-blue-100">
-                Autenticação segura e proteção de dados
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 to-indigo-700 items-center justify-center p-8"></div>
     </div>
   );
 }

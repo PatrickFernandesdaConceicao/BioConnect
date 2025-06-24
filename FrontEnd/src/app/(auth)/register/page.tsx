@@ -575,37 +575,7 @@ export default function RegisterPage() {
       </div>
 
       {/* Seção lateral com informações */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 to-indigo-700 items-center justify-center p-8">
-        <div className="text-center text-white max-w-md">
-          <div className="w-16 h-16 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-6">
-            <UserPlus className="h-8 w-8" />
-          </div>
-          <h2 className="text-3xl font-bold mb-4">Junte-se ao BioConnect</h2>
-          <p className="text-xl text-blue-100 mb-8">
-            Gerencie projetos, eventos e monitorias de forma integrada
-          </p>
-          <div className="space-y-4 text-left">
-            <div className="flex items-center space-x-3">
-              <CheckCircle className="h-5 w-5 text-green-300" />
-              <p className="text-blue-100">
-                Acesso completo às funcionalidades
-              </p>
-            </div>
-            <div className="flex items-center space-x-3">
-              <CheckCircle className="h-5 w-5 text-green-300" />
-              <p className="text-blue-100">Interface intuitiva e responsiva</p>
-            </div>
-            <div className="flex items-center space-x-3">
-              <CheckCircle className="h-5 w-5 text-green-300" />
-              <p className="text-blue-100">Dados seguros e protegidos</p>
-            </div>
-            <div className="flex items-center space-x-3">
-              <CheckCircle className="h-5 w-5 text-green-300" />
-              <p className="text-blue-100">Suporte técnico especializado</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 to-indigo-700 items-center justify-center p-8"></div>
     </div>
   );
 }

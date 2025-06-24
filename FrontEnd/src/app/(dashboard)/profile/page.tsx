@@ -273,8 +273,7 @@ export default function ProfilePage() {
         <CardHeader>
           <div className="flex items-center space-x-4">
             <Avatar className="h-20 w-20">
-              <AvatarImage src={`/api/placeholder/80/80`} alt={profile.nome} />
-              <AvatarFallback className="text-lg">
+              <AvatarFallback className="text-lg bg-blue-500 text-white">
                 {getInitials(profile.nome)}
               </AvatarFallback>
             </Avatar>

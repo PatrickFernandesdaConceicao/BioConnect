@@ -95,40 +95,33 @@ export default function ProjetosPage() {
   });
 
   const getStatusBadge = (status?: string) => {
-    const statusMap = {
+    const statusConfig = {
       PENDENTE: { label: "Pendente", variant: "secondary" as const },
       APROVADO: { label: "Aprovado", variant: "default" as const },
-      EM_ANDAMENTO: { label: "Em Andamento", variant: "default" as const },
-      CONCLUIDO: { label: "Concluído", variant: "outline" as const },
+      EM_ANDAMENTO: { label: "Em Andamento", variant: "outline" as const },
+      CONCLUIDO: { label: "Concluído", variant: "default" as const },
       REJEITADO: { label: "Rejeitado", variant: "destructive" as const },
     };
 
-    const statusInfo = statusMap[status as keyof typeof statusMap] || {
-      label: status || "Não definido",
+    const config = statusConfig[status as keyof typeof statusConfig] || {
+      label: "Indefinido",
       variant: "secondary" as const,
     };
 
-    return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>;
+    return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
   const handleDeleteProjeto = async (id: number, titulo: string) => {
     try {
       await deleteProjeto(id);
-      toast.success(`Projeto "${titulo}" removido com sucesso!`);
+      toast.success(`Projeto "${titulo}" deletado com sucesso!`);
     } catch (error) {
-      toast.error("Erro ao remover projeto");
+      toast.error("Erro ao deletar projeto");
     }
   };
 
   const areasConhecimento = [
-    "Biotecnologia",
-    "Saúde",
-    "Tecnologia da Informação",
-    "Administração",
-    "Educação",
-    "Engenharia",
-    "Ciências Exatas",
-    "Meio Ambiente",
+    ...new Set(projetos.map((p) => p.areaConhecimento)),
   ];
 
   if (loading) {
@@ -161,6 +154,7 @@ export default function ProjetosPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold">Projetos</h1>
@@ -176,10 +170,13 @@ export default function ProjetosPage() {
         </Link>
       </div>
 
+      {/* Cards de estatísticas */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total de Projetos
+            </CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -211,26 +208,25 @@ export default function ProjetosPage() {
           </CardContent>
         </Card>
 
-        {user?.tipo === "ADMIN" && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Orçamento Total
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                R${" "}
-                {projetos
-                  .reduce((acc, p) => acc + (p.orcamento || 0), 0)
-                  .toLocaleString()}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Orçamento Total
+            </CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              R${" "}
+              {projetos
+                .reduce((acc, p) => acc + (p.orcamento || 0), 0)
+                .toLocaleString()}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* Filtros */}
       <Card>
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
@@ -280,6 +276,7 @@ export default function ProjetosPage() {
         </CardContent>
       </Card>
 
+      {/* Tabela de projetos */}
       <Card>
         <CardHeader>
           <CardTitle>Lista de Projetos</CardTitle>
@@ -317,7 +314,7 @@ export default function ProjetosPage() {
                     <TableHead>Área</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Data Início</TableHead>
-                    {user?.tipo === "ADMIN" && <TableHead>Orçamento</TableHead>}
+                    <TableHead>Orçamento</TableHead>
                     <TableHead>Responsável</TableHead>
                     <TableHead className="w-[100px]">Ações</TableHead>
                   </TableRow>
@@ -346,20 +343,16 @@ export default function ProjetosPage() {
                             })
                           : "-"}
                       </TableCell>
-                      {user?.tipo === "ADMIN" && (
-                        <TableCell>
-                          {projeto.possuiOrcamento && projeto.orcamento
-                            ? `R$ ${projeto.orcamento.toLocaleString()}`
-                            : "Sem orçamento"}
-                        </TableCell>
-                      )}
+                      <TableCell>
+                        {projeto.possuiOrcamento && projeto.orcamento
+                          ? `R$ ${projeto.orcamento.toLocaleString()}`
+                          : "Sem orçamento"}
+                      </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          <div className="font-medium">
-                            {projeto.usuario?.nome || "Não informado"}
-                          </div>
+                          <div>{projeto.usuario?.nome || user?.nome}</div>
                           <div className="text-muted-foreground">
-                            {projeto.usuario?.email || ""}
+                            {projeto.usuario?.email || user?.email}
                           </div>
                         </div>
                       </TableCell>
@@ -392,21 +385,22 @@ export default function ProjetosPage() {
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <DropdownMenuItem
+                                  className="text-destructive"
                                   onSelect={(e) => e.preventDefault()}
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
-                                  Excluir
+                                  Deletar
                                 </DropdownMenuItem>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>
-                                    Confirmar exclusão
+                                    Confirmar Exclusão
                                   </AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Tem certeza que deseja excluir o projeto{" "}
-                                    <strong>"{projeto.titulo}"</strong>? Esta
-                                    ação não pode ser desfeita.
+                                    Tem certeza que deseja deletar o projeto "
+                                    {projeto.titulo}"? Esta ação não pode ser
+                                    desfeita.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -420,8 +414,9 @@ export default function ProjetosPage() {
                                         projeto.titulo
                                       )
                                     }
+                                    className="bg-destructive hover:bg-destructive/90"
                                   >
-                                    Excluir
+                                    Deletar
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
