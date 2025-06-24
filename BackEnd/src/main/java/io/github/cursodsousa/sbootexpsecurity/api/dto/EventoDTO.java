@@ -63,6 +63,7 @@ public class EventoDTO {
 
     public static EventoDTO fromEvento(Evento evento) {
         EventoDTO dto = new EventoDTO();
+        dto.setEventoId(evento.getId());
         dto.setTitulo(evento.getTitulo());
         dto.setCurso(evento.getCurso());
         dto.setDataInicio(evento.getDataInicio());
