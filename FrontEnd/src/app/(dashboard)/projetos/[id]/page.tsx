@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useProjetos } from "@/contexts/AppContext";
@@ -60,11 +60,7 @@ export default function ProjetoViewPage() {
 
   const projetoId = parseInt(params.id as string);
 
-  useEffect(() => {
-    loadProjeto();
-  }, [projetoId, projetos]);
-
-  const loadProjeto = async () => {
+  const loadProjeto = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -98,7 +94,11 @@ export default function ProjetoViewPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projetoId, projetos, fetchProjetos, router]);
+
+  useEffect(() => {
+    loadProjeto();
+  }, [loadProjeto]);
 
   const handleDelete = async () => {
     if (!projeto) return;

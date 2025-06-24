@@ -100,6 +100,11 @@ export default function EditEventoPage() {
   async function onSubmit(values: EventoFormValues) {
     setIsSubmitting(true);
     try {
+      if (!evento) {
+        toast.error("Evento não encontrado para atualizar.");
+        setIsSubmitting(false);
+        return;
+      }
       await updateEvento(evento.id, values);
       toast.success("Evento atualizado com sucesso!");
       router.push(`/eventos/${evento.id}`);

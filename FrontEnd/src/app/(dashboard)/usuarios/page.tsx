@@ -63,7 +63,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, isValid, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface Usuario {
@@ -86,6 +86,36 @@ export default function UsuariosPage() {
   const [tipoFilter, setTipoFilter] = useState("todos");
   const [statusFilter, setStatusFilter] = useState("todos");
 
+  // CORREÇÃO: Função para formatar datas de forma segura
+  const formatDateSafe = (dateString: string | null | undefined): string => {
+    if (!dateString) {
+      return "Não informado";
+    }
+
+    try {
+      // Tentar diferentes formatos de data
+      let date: Date;
+
+      // Se já é uma data ISO válida
+      if (dateString.includes("T") || dateString.includes("-")) {
+        date = parseISO(dateString);
+      } else {
+        // Tentar criar data diretamente
+        date = new Date(dateString);
+      }
+
+      // Verificar se a data é válida
+      if (isValid(date)) {
+        return format(date, "dd/MM/yyyy", { locale: ptBR });
+      } else {
+        return "Data inválida";
+      }
+    } catch (error) {
+      console.error("Erro ao formatar data:", dateString, error);
+      return "Data inválida";
+    }
+  };
+
   // Verificar permissão de admin
   useEffect(() => {
     if (!hasPermission("ADMIN")) {
@@ -105,14 +135,16 @@ export default function UsuariosPage() {
       setError(null);
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      const response = await authFetch(`${apiUrl}/api/usuarios`);
+      // CORREÇÃO: Usar endpoint correto
+      const response = await authFetch(`${apiUrl}/usuarios`);
 
       if (!response.ok) {
         throw new Error(`Erro ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
-      setUsuarios(data);
+      console.log("Dados dos usuários recebidos:", data); // Debug
+      setUsuarios(Array.isArray(data) ? data : []);
     } catch (error: any) {
       console.error("Erro ao carregar usuários:", error);
       setError(error.message || "Erro ao carregar usuários");
@@ -128,13 +160,11 @@ export default function UsuariosPage() {
   const toggleUserStatus = async (userId: string, novoStatus: boolean) => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      const response = await authFetch(
-        `${apiUrl}/api/usuarios/${userId}/status`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({ ativo: novoStatus }),
-        }
-      );
+      // CORREÇÃO: Usar endpoint correto
+      const response = await authFetch(`${apiUrl}/usuarios/${userId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ ativo: novoStatus }),
+      });
 
       if (!response.ok) {
         throw new Error(`Erro ${response.status}: ${response.statusText}`);
@@ -156,39 +186,11 @@ export default function UsuariosPage() {
     }
   };
 
-  // const changeUserRole = async (userId: string, novoTipo: "USER" | "ADMIN") => {
-  //   try {
-  //     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-  //     const response = await authFetch(
-  //       `${apiUrl}/api/usuarios/${userId}/role`,
-  //       {
-  //         method: "PATCH",
-  //         body: JSON.stringify({ tipo: novoTipo }),
-  //       }
-  //     );
-
-  //     if (!response.ok) {
-  //       throw new Error(`Erro ${response.status}: ${response.statusText}`);
-  //     }
-
-  //     // Atualizar localmente
-  //     setUsuarios(
-  //       usuarios.map((u) => (u.id === userId ? { ...u, tipo: novoTipo } : u))
-  //     );
-
-  //     toast.success("Permissão alterada com sucesso!");
-  //   } catch (error: any) {
-  //     console.error("Erro ao alterar permissão:", error);
-  //     toast.error("Erro ao alterar permissão do usuário", {
-  //       description: error.message || "Tente novamente.",
-  //     });
-  //   }
-  // };
-
   const deleteUser = async (userId: string) => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      const response = await authFetch(`${apiUrl}/api/usuarios/${userId}`, {
+      // CORREÇÃO: Usar endpoint correto
+      const response = await authFetch(`${apiUrl}/usuarios/${userId}`, {
         method: "DELETE",
       });
 
@@ -216,6 +218,7 @@ export default function UsuariosPage() {
       usuario.login.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesTipo = tipoFilter === "todos" || usuario.tipo === tipoFilter;
+
     const matchesStatus =
       statusFilter === "todos" ||
       (statusFilter === "ativo" && usuario.ativo) ||
@@ -224,31 +227,22 @@ export default function UsuariosPage() {
     return matchesSearch && matchesTipo && matchesStatus;
   });
 
-  const getStatusBadge = (ativo: boolean) => {
-    return ativo ? (
-      <Badge variant="default" className="bg-green-100 text-green-800">
-        <UserCheck className="w-3 h-3 mr-1" />
-        Ativo
-      </Badge>
-    ) : (
-      <Badge variant="secondary" className="bg-red-100 text-red-800">
-        <UserX className="w-3 h-3 mr-1" />
-        Inativo
-      </Badge>
-    );
-  };
-
   const getRoleBadge = (tipo: string) => {
     return tipo === "ADMIN" ? (
-      <Badge variant="destructive">
-        <Shield className="w-3 h-3 mr-1" />
+      <Badge className="bg-purple-100 text-purple-800">
+        <Shield className="mr-1 h-3 w-3" />
         Admin
       </Badge>
     ) : (
-      <Badge variant="outline">
-        <Users className="w-3 h-3 mr-1" />
-        Usuário
-      </Badge>
+      <Badge variant="secondary">Usuário</Badge>
+    );
+  };
+
+  const getStatusBadge = (ativo: boolean) => {
+    return ativo ? (
+      <Badge className="bg-green-100 text-green-800">Ativo</Badge>
+    ) : (
+      <Badge className="bg-red-100 text-red-800">Inativo</Badge>
     );
   };
 
@@ -262,7 +256,7 @@ export default function UsuariosPage() {
           <CardContent className="text-center space-y-4">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
             <p className="text-muted-foreground">
-              Você não tem permissão para acessar esta página.
+              Você não tem permissão para acessar o gerenciamento de usuários.
             </p>
             <Button onClick={() => router.push("/dashboard")}>
               Voltar ao Dashboard
@@ -274,47 +268,55 @@ export default function UsuariosPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Cabeçalho */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">
-          Gerenciamento de Usuários
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Gerencie usuários, permissões e status de ativação
-        </p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Gerenciar Usuários
+          </h1>
+          <p className="text-muted-foreground">
+            Administre usuários, permissões e status no sistema
+          </p>
+        </div>
+        <Link href="/auth/register">
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Usuário
+          </Button>
+        </Link>
       </div>
 
-      {/* Filtros e Busca */}
+      {/* Filtros */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Search className="mr-2 h-5 w-5" />
-            Filtros
-          </CardTitle>
+          <CardTitle>Filtros</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
-              <Input
-                placeholder="Buscar por nome, email ou login..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full"
-              />
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar usuários..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
             </div>
             <Select value={tipoFilter} onValueChange={setTipoFilter}>
-              <SelectTrigger className="w-full md:w-48">
+              <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Filtrar por tipo" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos os tipos</SelectItem>
-                <SelectItem value="USER">Usuários</SelectItem>
                 <SelectItem value="ADMIN">Administradores</SelectItem>
+                <SelectItem value="USER">Usuários</SelectItem>
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-48">
+              <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Filtrar por status" />
               </SelectTrigger>
               <SelectContent>
@@ -330,18 +332,10 @@ export default function UsuariosPage() {
       {/* Lista de Usuários */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Usuários Cadastrados</CardTitle>
-              <CardDescription>
-                {filteredUsuarios.length} usuário(s) encontrado(s)
-              </CardDescription>
-            </div>
-            <Button onClick={() => router.push("/usuarios/new")}>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Usuário
-            </Button>
-          </div>
+          <CardTitle>Usuários ({filteredUsuarios.length})</CardTitle>
+          <CardDescription>
+            Lista de todos os usuários cadastrados no sistema
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -397,9 +391,8 @@ export default function UsuariosPage() {
                       <TableCell>{getRoleBadge(usuario.tipo)}</TableCell>
                       <TableCell>{getStatusBadge(usuario.ativo)}</TableCell>
                       <TableCell>
-                        {format(new Date(usuario.dataCriacao), "dd/MM/yyyy", {
-                          locale: ptBR,
-                        })}
+                        {/* CORREÇÃO: Usar função segura para formatar data */}
+                        {formatDateSafe(usuario.dataCriacao)}
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -451,28 +444,14 @@ export default function UsuariosPage() {
                               )}
                             </DropdownMenuItem>
 
-                            <DropdownMenuItem
-                              onClick={() =>
-                                // changeUserRole(
-                                //   usuario.id,
-                                //   usuario.tipo === "ADMIN" ? "USER" : "ADMIN"
-                                // )
-                                null
-                              }
-                            >
-                              <Shield className="mr-2 h-4 w-4" />
-                              {usuario.tipo === "ADMIN"
-                                ? "Remover Admin"
-                                : "Tornar Admin"}
-                            </DropdownMenuItem>
-
                             <DropdownMenuSeparator />
 
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <DropdownMenuItem
-                                  className="text-red-600"
                                   onSelect={(e) => e.preventDefault()}
+                                  className="text-red-600"
+                                  disabled={usuario.id === user?.id}
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
                                   Excluir

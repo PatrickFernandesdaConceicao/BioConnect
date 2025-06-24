@@ -81,7 +81,7 @@ export default function MonitoriasPage() {
   useEffect(() => {
     fetchMonitorias();
     fetchMasterData();
-  }, []);
+  }, [fetchMonitorias, fetchMasterData]);
 
   const filteredMonitorias = monitorias.filter((monitoria) => {
     const matchesSearch =

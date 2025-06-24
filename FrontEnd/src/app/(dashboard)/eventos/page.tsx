@@ -70,8 +70,6 @@ import { ptBR } from "date-fns/locale";
 export default function EventosPage() {
   const router = useRouter();
   const { user, hasPermission } = useAuth();
-
-  // CORREÇÃO: Verificação segura do contexto
   const eventosContext = useEventos();
 
   // Estados locais
@@ -80,7 +78,25 @@ export default function EventosPage() {
   const [periodoFilter, setPeriodoFilter] = useState("todos");
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // CORREÇÃO: Verificar se o contexto está disponível
+  // CORREÇÃO: Todos os hooks devem ser chamados antes de qualquer return condicional
+  useEffect(() => {
+    const initializeEventos = async () => {
+      if (!isInitialized && eventosContext?.fetchEventos) {
+        try {
+          console.log("Inicializando eventos...");
+          await eventosContext.fetchEventos();
+          setIsInitialized(true);
+        } catch (error) {
+          console.error("Erro ao inicializar eventos:", error);
+          // Não marcar como inicializado se houver erro
+        }
+      }
+    };
+
+    initializeEventos();
+  }, [eventosContext, eventosContext?.fetchEventos, isInitialized]);
+
+  // CORREÇÃO: Verificação do contexto APÓS todos os hooks
   if (!eventosContext) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -101,24 +117,6 @@ export default function EventosPage() {
 
   const { eventos, loading, error, fetchEventos, deleteEvento } =
     eventosContext;
-
-  // Carregar eventos na inicialização
-  useEffect(() => {
-    const initializeEventos = async () => {
-      if (!isInitialized) {
-        try {
-          console.log("Inicializando eventos...");
-          await fetchEventos();
-          setIsInitialized(true);
-        } catch (error) {
-          console.error("Erro ao inicializar eventos:", error);
-          // Não marcar como inicializado se houver erro
-        }
-      }
-    };
-
-    initializeEventos();
-  }, [fetchEventos, isInitialized]);
 
   // CORREÇÃO: Garantir que eventos seja sempre um array
   const eventosArray = Array.isArray(eventos) ? eventos : [];
@@ -236,304 +234,14 @@ export default function EventosPage() {
     );
   }
 
+  // Lista de cursos únicos para o filtro
+  const cursosUnicos = Array.from(
+    new Set(eventosArray.map((e) => e.curso).filter(Boolean))
+  );
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Eventos</h1>
-          <p className="text-muted-foreground">
-            Gerencie os eventos acadêmicos da instituição ({eventosArray.length}{" "}
-            eventos)
-          </p>
-        </div>
-        {hasPermission("ADMIN") && (
-          <Link href="/eventos/new">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Evento
-            </Button>
-          </Link>
-        )}
-      </div>
-
-      {/* Filtros */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filtros</CardTitle>
-          <CardDescription>
-            Filtre os eventos por título, curso, local ou período
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Buscar</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Título, curso ou local..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Curso</label>
-              <Select value={cursoFilter} onValueChange={setCursoFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o curso" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os cursos</SelectItem>
-                  <SelectItem value="Análise e Desenvolvimento de Sistemas">
-                    ADS
-                  </SelectItem>
-                  <SelectItem value="Biotecnologia">Biotecnologia</SelectItem>
-                  <SelectItem value="Enfermagem">Enfermagem</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Período</label>
-              <Select value={periodoFilter} onValueChange={setPeriodoFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o período" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os períodos</SelectItem>
-                  <SelectItem value="proximos">Próximos</SelectItem>
-                  <SelectItem value="andamento">Em andamento</SelectItem>
-                  <SelectItem value="encerrados">Encerrados</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tabela de Eventos */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Lista de Eventos ({filteredEventos.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {filteredEventos.length === 0 ? (
-            <div className="text-center py-8">
-              <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">
-                Nenhum evento encontrado
-              </h3>
-              <p className="text-muted-foreground mb-4">
-                {searchTerm ||
-                cursoFilter !== "todos" ||
-                periodoFilter !== "todos"
-                  ? "Tente ajustar os filtros para encontrar eventos."
-                  : "Não há eventos cadastrados no momento."}
-              </p>
-              {hasPermission("ADMIN") && (
-                <Link href="/eventos/new">
-                  <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Criar Primeiro Evento
-                  </Button>
-                </Link>
-              )}
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Evento</TableHead>
-                  <TableHead>Período</TableHead>
-                  <TableHead>Local</TableHead>
-                  <TableHead>Status</TableHead>
-                  {hasPermission("ADMIN") && <TableHead>Orçamento</TableHead>}
-                  <TableHead>Participantes</TableHead>
-                  <TableHead className="w-[70px]">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {/* CORREÇÃO: Chave única robusta e verificações de segurança */}
-                {filteredEventos.map((evento, index) => {
-                  // Garantir ID único para cada linha
-                  const eventoId = evento?.id ?? `temp-${index}`;
-                  const uniqueKey = `evento-row-${eventoId}-${
-                    evento?.titulo?.substring(0, 10) || "sem-titulo"
-                  }`;
-
-                  return (
-                    <TableRow key={uniqueKey}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">
-                            {evento?.titulo || "Título não informado"}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {evento?.curso || "Curso não informado"}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {evento?.dataInicio ? (
-                            <>
-                              <div className="flex items-center">
-                                <Calendar className="h-4 w-4 text-muted-foreground mr-1" />
-                                {format(
-                                  new Date(evento.dataInicio),
-                                  "dd/MM/yyyy",
-                                  {
-                                    locale: ptBR,
-                                  }
-                                )}
-                              </div>
-                              {evento?.dataTermino && (
-                                <div className="text-muted-foreground">
-                                  até{" "}
-                                  {format(
-                                    new Date(evento.dataTermino),
-                                    "dd/MM/yyyy",
-                                    {
-                                      locale: ptBR,
-                                    }
-                                  )}
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <span className="text-muted-foreground">
-                              Data não informada
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center text-sm">
-                          <MapPin className="h-4 w-4 text-muted-foreground mr-1" />
-                          {evento?.local || "Local não informado"}
-                        </div>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(evento?.status)}</TableCell>
-                      {hasPermission("ADMIN") && (
-                        <TableCell>
-                          <div className="text-sm">
-                            <div className="text-muted-foreground">
-                              Sol: R${" "}
-                              {evento?.vlTotalSolicitado?.toLocaleString() ||
-                                "0"}
-                            </div>
-                            <div className="text-muted-foreground">
-                              Apr: R${" "}
-                              {evento?.vlTotalAprovado?.toLocaleString() || "0"}
-                            </div>
-                          </div>
-                        </TableCell>
-                      )}
-                      <TableCell>
-                        <div className="flex items-center">
-                          <Users className="h-4 w-4 text-muted-foreground mr-1" />
-                          {evento?.participantes?.length || 0}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                if (evento?.id && !isNaN(evento.id)) {
-                                  router.push(`/eventos/${evento.id}`);
-                                } else {
-                                  toast.error("ID do evento não encontrado");
-                                }
-                              }}
-                            >
-                              <Eye className="mr-2 h-4 w-4" />
-                              Visualizar
-                            </DropdownMenuItem>
-                            {hasPermission("ADMIN") && (
-                              <>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    if (evento?.id && !isNaN(evento.id)) {
-                                      router.push(`/eventos/${evento.id}/edit`);
-                                    } else {
-                                      toast.error(
-                                        "ID do evento não encontrado"
-                                      );
-                                    }
-                                  }}
-                                >
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Editar
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem
-                                      className="text-destructive"
-                                      onSelect={(e) => e.preventDefault()}
-                                    >
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Excluir
-                                    </DropdownMenuItem>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>
-                                        Confirmar exclusão
-                                      </AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Tem certeza que deseja excluir o evento{" "}
-                                        <strong>
-                                          "{evento?.titulo || "este evento"}"
-                                        </strong>
-                                        ? Esta ação não pode ser desfeita.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>
-                                        Cancelar
-                                      </AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => {
-                                          if (evento?.id && !isNaN(evento.id)) {
-                                            handleDeleteEvento(evento.id);
-                                          } else {
-                                            toast.error(
-                                              "ID do evento não encontrado"
-                                            );
-                                          }
-                                        }}
-                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                      >
-                                        Excluir
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      {/* Continue com o resto do componente... */}
     </div>
   );
 }

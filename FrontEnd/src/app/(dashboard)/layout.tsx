@@ -138,21 +138,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <header className="bg-white border-b border-slate-200 px-4 py-3 md:px-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="relative w-8 h-8 mr-4">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  className={"w-full h-full text-slate-900"}
-                >
-                  <path
-                    d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
               <h1 className="text-lg font-semibold text-slate-900 hidden md:block">
                 BioConnect
               </h1>

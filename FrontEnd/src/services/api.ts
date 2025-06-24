@@ -273,19 +273,19 @@ class EventoService {
 
 class UsuarioService {
   async list(): Promise<Usuario[]> {
-    const response = await authFetch(`${API_URL}/api/usuarios`);
+    const response = await authFetch(`${API_URL}/usuarios`);
     if (!response.ok) throw new Error("Erro ao buscar usuários");
     return response.json();
   }
 
   async getById(id: string): Promise<Usuario> {
-    const response = await authFetch(`${API_URL}/api/usuarios/${id}`);
+    const response = await authFetch(`${API_URL}/usuarios/${id}`);
     if (!response.ok) throw new Error("Usuário não encontrado");
     return response.json();
   }
 
   async update(id: string, data: Partial<Usuario>): Promise<Usuario> {
-    const response = await authFetch(`${API_URL}/api/usuarios/${id}`, {
+    const response = await authFetch(`${API_URL}/usuarios/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
@@ -294,7 +294,7 @@ class UsuarioService {
   }
 
   async delete(id: string): Promise<void> {
-    const response = await authFetch(`${API_URL}/api/usuarios/${id}`, {
+    const response = await authFetch(`${API_URL}/usuarios/${id}`, {
       method: "DELETE",
     });
     if (!response.ok) throw new Error("Erro ao deletar usuário");

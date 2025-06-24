@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useMonitorias, useMasterData } from "@/contexts/AppContext";
@@ -70,30 +70,20 @@ export default function MonitoriaViewPage() {
 
   const monitoriaId = parseInt(params.id as string);
 
-  useEffect(() => {
-    loadMonitoria();
-    fetchMasterData();
-  }, [monitoriaId, monitorias]);
-
-  const loadMonitoria = async () => {
+  const loadMonitoria = useCallback(async () => {
     try {
       setLoading(true);
-
       // Primeiro tentar encontrar nos dados já carregados
       const monitoriaEncontrada = monitorias.find((m) => m.id === monitoriaId);
-
       if (monitoriaEncontrada) {
         setMonitoria(monitoriaEncontrada);
         setLoading(false);
         return;
       }
-
       // Se não encontrado, buscar todas as monitorias
       await fetchMonitorias();
-
       // Tentar novamente após fetch
       const monitoriaAposFetch = monitorias.find((m) => m.id === monitoriaId);
-
       if (monitoriaAposFetch) {
         setMonitoria(monitoriaAposFetch);
       } else {
@@ -109,7 +99,12 @@ export default function MonitoriaViewPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [monitoriaId, monitorias, fetchMonitorias, router]);
+
+  useEffect(() => {
+    loadMonitoria();
+    fetchMasterData();
+  }, [loadMonitoria, fetchMasterData]);
 
   const handleDelete = async () => {
     if (!monitoria) return;

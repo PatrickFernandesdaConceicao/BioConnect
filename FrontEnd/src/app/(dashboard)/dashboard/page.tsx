@@ -73,7 +73,7 @@ export default function DashboardPage() {
     fetchProjetos();
     fetchEventos();
     fetchMonitorias();
-  }, []);
+  }, [fetchProjetos, fetchEventos, fetchMonitorias]);
 
   const today = new Date();
   const last30Days = subDays(today, 30);
@@ -134,7 +134,7 @@ export default function DashboardPage() {
     ...monitorias.slice(0, 2).map((m) => ({
       id: m.id,
       tipo: "monitoria",
-      titulo: m.disciplinaNome || "Monitoria",
+      titulo: m.disciplinaId || "Monitoria",
       status: "ABERTA",
       data: m.dataInicio,
       url: `/monitorias/${m.id}`,
@@ -142,6 +142,12 @@ export default function DashboardPage() {
   ]
     .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
     .slice(0, 8);
+
+  // Define a type for the badge configuration
+  type BadgeConfig = {
+    label: string;
+    variant: "default" | "secondary" | "outline";
+  };
 
   const getStatusBadge = (status: string, tipo: string) => {
     const configs = {
@@ -163,7 +169,9 @@ export default function DashboardPage() {
     type StatusKey<T extends TipoKey> = keyof ConfigType[T];
 
     const tipoConfig = configs[tipo as TipoKey];
-    const config = tipoConfig?.[status as StatusKey<TipoKey>] || {
+    const config: BadgeConfig = (tipoConfig?.[
+      status as StatusKey<TipoKey>
+    ] as BadgeConfig) || {
       label: status,
       variant: "outline" as const,
     };
@@ -401,10 +409,10 @@ export default function DashboardPage() {
                       >
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">
-                            {monitoria.disciplinaNome}
+                            {monitoria.disciplinaId}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            R$ {monitoria.valorBolsa?.toLocaleString() || "0"}
+                            R$ {monitoria.bolsa?.toLocaleString() || "0"}
                           </p>
                         </div>
                         <Link href={`/monitorias/${monitoria.id}`}>

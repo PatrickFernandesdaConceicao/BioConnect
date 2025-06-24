@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, authFetch } from "@/lib/auth";
 import { useApp } from "@/contexts/AppContext";
@@ -92,14 +92,7 @@ export default function RelatoriosPage() {
     }
   }, [hasPermission, router]);
 
-  // Carregar dados dos relatórios
-  useEffect(() => {
-    if (hasPermission("ADMIN")) {
-      fetchRelatoryData();
-    }
-  }, [hasPermission, selectedPeriod, selectedType]);
-
-  const fetchRelatoryData = async () => {
+  const fetchRelatoryData = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -138,10 +131,18 @@ export default function RelatoriosPage() {
 
       setData(mockData);
       setChartData(mockChartData);
+
+      toast.error("Erro ao carregar dados", {
+        description: "Usando dados de demonstração.",
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedPeriod, selectedType]);
+
+  useEffect(() => {
+    fetchRelatoryData();
+  }, [fetchRelatoryData]);
 
   const exportReport = async (format: "pdf" | "excel") => {
     try {

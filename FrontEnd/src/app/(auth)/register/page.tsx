@@ -72,8 +72,10 @@ const registerSchema = z
     path: ["confirmacaoSenha"],
   });
 
+// Definir tipo do formulário
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
+// Interface de resposta do registro
 interface RegisterResponse {
   id?: string;
   message?: string;
@@ -81,6 +83,7 @@ interface RegisterResponse {
   errors?: Record<string, string>;
 }
 
+// Interface de requisição de registro
 interface RegisterRequest {
   login: string;
   senha: string;
@@ -258,12 +261,13 @@ export default function RegisterPage() {
         } else if (error.status === 500) {
           errorMessage =
             "Erro interno do servidor. Tente novamente mais tarde.";
-        } else if (error.message) {
-          errorMessage = error.message;
+        } else if (!navigator.onLine) {
+          errorMessage =
+            "Sem conexão com a internet. Verifique sua conexão e tente novamente.";
         }
 
-        toast.error("Erro ao criar conta", {
-          description: errorMessage,
+        toast.error("Erro ao registrar", {
+          description: error.message || errorMessage,
         });
       }
     } finally {
@@ -271,311 +275,268 @@ export default function RegisterPage() {
     }
   }
 
+  // Função para calcular a cor da barra de força
   const getPasswordStrengthColor = () => {
-    if (passwordStrength.score <= 2) return "bg-red-500";
-    if (passwordStrength.score <= 3) return "bg-yellow-500";
-    return "bg-green-500";
+    const colors = [
+      "bg-red-500",
+      "bg-orange-500",
+      "bg-yellow-500",
+      "bg-lime-500",
+      "bg-green-500",
+    ];
+    return colors[passwordStrength.score] || colors[0];
   };
 
+  // Função para obter o texto de força da senha
   const getPasswordStrengthText = () => {
-    if (passwordStrength.score <= 2) return "Fraca";
-    if (passwordStrength.score <= 3) return "Média";
-    return "Forte";
+    const texts = ["Muito fraca", "Fraca", "Razoável", "Boa", "Excelente"];
+    return texts[passwordStrength.score] || texts[0];
   };
-
-  if (isAuthenticated) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="text-center space-y-4">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" />
-              <p className="text-muted-foreground">Redirecionando...</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
-    <div className="flex min-h-screen">
-      <div className="flex flex-col items-center justify-center w-full lg:w-1/2 p-8">
-        <div className="w-full max-w-md">
-          {/* Link para voltar */}
-          <Link href="/login" className="inline-block mb-4">
-            <Button variant="ghost" size="sm" className="gap-2">
-              <ArrowLeft className="h-4 w-4" /> Voltar para login
-            </Button>
-          </Link>
-
-          {/* Logo */}
-          <div className="flex items-center justify-center mb-8">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              className="w-10 h-10 text-blue-600"
+    <div className="container flex items-center justify-center min-h-screen py-10">
+      <Card className="w-full max-w-lg">
+        <CardHeader className="space-y-1">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-2xl font-bold">Criar conta</CardTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push("/")}
             >
-              <path
-                d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span className="ml-2 text-2xl font-bold text-slate-900">
-              BioConnect
-            </span>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
           </div>
+          <CardDescription>
+            Preencha os dados abaixo para criar sua conta no BioConnect
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="nome"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome completo</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Digite seu nome completo"
+                        autoComplete="name"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <UserPlus className="h-5 w-5" />
-                Criar conta
-              </CardTitle>
-              <CardDescription>
-                Preencha as informações abaixo para criar sua conta
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form
-                  onSubmit={form.handleSubmit(onSubmit)}
-                  className="space-y-4"
-                >
-                  <FormField
-                    control={form.control}
-                    name="nome"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome completo</FormLabel>
-                        <FormControl>
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="seu@email.com"
+                        autoComplete="email"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="login"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome de usuário</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Digite seu nome de usuário"
+                        autoComplete="username"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription className="text-xs">
+                      Este será seu nome de usuário para fazer login
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="senha"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Senha</FormLabel>
+                      <FormControl>
+                        <div className="relative">
                           <Input
-                            placeholder="Digite seu nome completo"
-                            autoComplete="name"
+                            type={showPassword ? "text" : "password"}
+                            placeholder="••••••••"
+                            autoComplete="new-password"
                             {...field}
                           />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowPassword(!showPassword)}
+                          >
+                            {showPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
+                <FormField
+                  control={form.control}
+                  name="confirmacaoSenha"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirmar senha</FormLabel>
+                      <FormControl>
+                        <div className="relative">
                           <Input
-                            type="email"
-                            placeholder="seu@email.com"
-                            autoComplete="email"
+                            type={showConfirmPassword ? "text" : "password"}
+                            placeholder="••••••••"
+                            autoComplete="new-password"
                             {...field}
                           />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() =>
+                              setShowConfirmPassword(!showConfirmPassword)
+                            }
+                          >
+                            {showConfirmPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-                  <FormField
-                    control={form.control}
-                    name="login"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome de usuário</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Digite seu nome de usuário"
-                            autoComplete="username"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription className="text-xs">
-                          Este será seu nome de usuário para fazer login
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="senha"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Senha</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Input
-                                type={showPassword ? "text" : "password"}
-                                placeholder="••••••••"
-                                autoComplete="new-password"
-                                {...field}
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                                onClick={() => setShowPassword(!showPassword)}
-                              >
-                                {showPassword ? (
-                                  <EyeOff className="h-4 w-4" />
-                                ) : (
-                                  <Eye className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </div>
-                          </FormControl>
-                          {field.value && (
-                            <div className="mt-2">
-                              <div className="flex justify-between text-xs mb-1">
-                                <span>Força da senha:</span>
-                                <span
-                                  className={
-                                    passwordStrength.score <= 2
-                                      ? "text-red-600"
-                                      : passwordStrength.score <= 3
-                                      ? "text-yellow-600"
-                                      : "text-green-600"
-                                  }
-                                >
-                                  {getPasswordStrengthText()}
-                                </span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div
-                                  className={`h-2 rounded-full transition-all ${getPasswordStrengthColor()}`}
-                                  style={{
-                                    width: `${
-                                      (passwordStrength.score / 5) * 100
-                                    }%`,
-                                  }}
-                                ></div>
-                              </div>
-                              {passwordStrength.feedback.length > 0 && (
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  Faltam: {passwordStrength.feedback.join(", ")}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="confirmacaoSenha"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Confirmar senha</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Input
-                                type={showConfirmPassword ? "text" : "password"}
-                                placeholder="••••••••"
-                                autoComplete="new-password"
-                                {...field}
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                                onClick={() =>
-                                  setShowConfirmPassword(!showConfirmPassword)
-                                }
-                              >
-                                {showConfirmPassword ? (
-                                  <EyeOff className="h-4 w-4" />
-                                ) : (
-                                  <Eye className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+              {/* Indicador de força da senha */}
+              {form.watch("senha") && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      Força da senha:
+                    </span>
+                    <span
+                      className={`font-medium ${getPasswordStrengthColor()}`}
+                    >
+                      {getPasswordStrengthText()}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all ${getPasswordStrengthColor()}`}
+                      style={{
+                        width: `${(passwordStrength.score / 5) * 100}%`,
+                      }}
                     />
                   </div>
+                  {passwordStrength.feedback.length > 0 && (
+                    <ul className="text-xs text-muted-foreground space-y-1">
+                      {passwordStrength.feedback.map((item, index) => (
+                        <li key={index} className="flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
 
-                  <FormField
-                    control={form.control}
-                    name="aceiteTermos"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>
-                            Aceito os{" "}
-                            <Link
-                              href="/terms"
-                              className="underline underline-offset-4 hover:text-primary"
-                              target="_blank"
-                            >
-                              termos e condições
-                            </Link>
-                          </FormLabel>
-                          <FormDescription>
-                            Você deve aceitar os termos para criar uma conta.
-                          </FormDescription>
-                          <FormMessage />
-                        </div>
-                      </FormItem>
-                    )}
-                  />
+              <FormField
+                control={form.control}
+                name="aceiteTermos"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        Aceito os{" "}
+                        <Link
+                          href="/terms"
+                          className="underline underline-offset-4 hover:text-primary"
+                          target="_blank"
+                        >
+                          termos e condições
+                        </Link>
+                      </FormLabel>
+                      <FormDescription>
+                        Você deve aceitar os termos para criar uma conta.
+                      </FormDescription>
+                      <FormMessage />
+                    </div>
+                  </FormItem>
+                )}
+              />
 
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Criando conta...
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="mr-2 h-4 w-4" />
-                        Criar conta
-                      </>
-                    )}
-                  </Button>
-                </form>
-              </Form>
-            </CardContent>
-            <CardFooter>
-              <div className="text-center text-sm text-muted-foreground w-full">
-                Já tem uma conta?{" "}
-                <Link
-                  href="/login"
-                  className="underline underline-offset-4 hover:text-primary"
-                >
-                  Fazer login
-                </Link>
-              </div>
-            </CardFooter>
-          </Card>
-        </div>
-      </div>
-
-      {/* Seção lateral com informações */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 to-indigo-700 items-center justify-center p-8"></div>
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Criando conta...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Criar conta
+                  </>
+                )}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+        <CardFooter className="flex flex-col space-y-4">
+          <div className="text-sm text-center text-muted-foreground">
+            Já tem uma conta?{" "}
+            <Link
+              href="/login"
+              className="font-medium text-primary hover:underline"
+            >
+              Faça login
+            </Link>
+          </div>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

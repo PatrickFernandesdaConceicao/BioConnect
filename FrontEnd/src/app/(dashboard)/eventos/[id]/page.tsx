@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEventos } from "@/contexts/AppContext";
@@ -58,29 +58,20 @@ export default function EventoViewPage() {
 
   const eventoId = parseInt(params.id as string);
 
-  useEffect(() => {
-    loadEvento();
-  }, [eventoId, eventos]);
-
-  const loadEvento = async () => {
+  const loadEvento = useCallback(async () => {
     try {
       setLoading(true);
-
       // Primeiro tentar encontrar nos dados já carregados
       const eventoEncontrado = eventos.find((e) => e.id === eventoId);
-
       if (eventoEncontrado) {
         setEvento(eventoEncontrado);
         setLoading(false);
         return;
       }
-
       // Se não encontrado, buscar todos os eventos
       await fetchEventos();
-
       // Tentar novamente após fetch
       const eventoAposFetch = eventos.find((e) => e.id === eventoId);
-
       if (eventoAposFetch) {
         setEvento(eventoAposFetch);
       } else {
@@ -96,7 +87,11 @@ export default function EventoViewPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [eventoId, eventos, fetchEventos, router]);
+
+  useEffect(() => {
+    loadEvento();
+  }, [eventoId, eventos, loadEvento]);
 
   const handleDelete = async () => {
     if (!evento) return;

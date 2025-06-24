@@ -79,7 +79,7 @@ export default function ProjetosPage() {
 
   useEffect(() => {
     fetchProjetos();
-  }, []);
+  }, [fetchProjetos]);
 
   const filteredProjetos = projetos.filter((projeto) => {
     const matchesSearch =
@@ -265,11 +265,15 @@ export default function ProjetosPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todas">Todas as Áreas</SelectItem>
-                {areasConhecimento.map((area) => (
-                  <SelectItem key={area} value={area}>
-                    {area}
-                  </SelectItem>
-                ))}
+                {areasConhecimento
+                  .filter(
+                    (area): area is string => typeof area === "string" && !!area
+                  )
+                  .map((area) => (
+                    <SelectItem key={area} value={area}>
+                      {area}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
@@ -350,9 +354,8 @@ export default function ProjetosPage() {
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          <div>{projeto.usuario?.nome || user?.nome}</div>
                           <div className="text-muted-foreground">
-                            {projeto.usuario?.email || user?.email}
+                            {projeto.emailsParticipantes || user?.email}
                           </div>
                         </div>
                       </TableCell>
