@@ -7,25 +7,10 @@ type UserRole = "USER" | "ADMIN";
 // ===================================================================
 
 // Rotas públicas que não precisam de autenticação
-const publicRoutes = [
-  "/",
-  "/login",
-  "/auth/login",
-  "/auth/register",
-  "/auth/recover-password",
-  "/register",
-  "/recover-password",
-];
+const publicRoutes = ["/", "/login", "/register", "/recover-password"];
 
 // Rotas de autenticação que redirecionam se já logado
-const authRoutes = [
-  "/login",
-  "/auth/login",
-  "/auth/register",
-  "/register",
-  "/auth/recover-password",
-  "/recover-password",
-];
+const authRoutes = ["/login", "/register", "/recover-password"];
 
 // Rotas protegidas que requerem autenticação
 const protectedRoutes = [

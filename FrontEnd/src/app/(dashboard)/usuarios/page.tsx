@@ -279,7 +279,7 @@ export default function UsuariosPage() {
             Administre usuários, permissões e status no sistema
           </p>
         </div>
-        <Link href="/auth/register">
+        <Link href="/register">
           <Button>
             <Plus className="mr-2 h-4 w-4" />
             Novo Usuário

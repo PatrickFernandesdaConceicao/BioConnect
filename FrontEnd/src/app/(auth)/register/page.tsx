@@ -444,40 +444,6 @@ export default function RegisterPage() {
                 />
               </div>
 
-              {/* Indicador de força da senha */}
-              {form.watch("senha") && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      Força da senha:
-                    </span>
-                    <span
-                      className={`font-medium ${getPasswordStrengthColor()}`}
-                    >
-                      {getPasswordStrengthText()}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full transition-all ${getPasswordStrengthColor()}`}
-                      style={{
-                        width: `${(passwordStrength.score / 5) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  {passwordStrength.feedback.length > 0 && (
-                    <ul className="text-xs text-muted-foreground space-y-1">
-                      {passwordStrength.feedback.map((item, index) => (
-                        <li key={index} className="flex items-center gap-1">
-                          <AlertCircle className="h-3 w-3" />
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-
               <FormField
                 control={form.control}
                 name="aceiteTermos"

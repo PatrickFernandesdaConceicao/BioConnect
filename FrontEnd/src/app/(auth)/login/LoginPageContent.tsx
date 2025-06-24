@@ -275,7 +275,7 @@ export default function LoginPageContent({ callbackUrl, router }: Props) {
             >
               Esqueceu a senha?
             </Link>
-            <Link href="/auth/register" className="text-sm text-blue-600">
+            <Link href="/register" className="text-sm text-blue-600">
               Criar conta
             </Link>
           </CardFooter>
