@@ -1,3 +1,9 @@
+// ===================================================================
+// Correção Completa do AppContext
+// ===================================================================
+
+// FrontEnd/src/contexts/AppContext.tsx
+
 "use client";
 
 import React, { createContext, useContext, useReducer, ReactNode } from "react";
@@ -201,22 +207,22 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
 
     case "SET_PROJETOS":
-      return { ...state, projetos: action.payload };
+      return { ...state, projetos: action.payload || [] };
 
     case "SET_MONITORIAS":
-      return { ...state, monitorias: action.payload };
+      return { ...state, monitorias: action.payload || [] };
 
     case "SET_EVENTOS":
-      return { ...state, eventos: action.payload };
+      return { ...state, eventos: action.payload || [] };
 
     case "SET_USUARIOS":
-      return { ...state, usuarios: action.payload };
+      return { ...state, usuarios: action.payload || [] };
 
     case "SET_DISCIPLINAS":
-      return { ...state, disciplinas: action.payload };
+      return { ...state, disciplinas: action.payload || [] };
 
     case "SET_CURSOS":
-      return { ...state, cursos: action.payload };
+      return { ...state, cursos: action.payload || [] };
 
     case "ADD_PROJETO":
       return { ...state, projetos: [...state.projetos, action.payload] };
@@ -303,7 +309,31 @@ interface AppContextType extends AppState {
   fetchCursos: () => Promise<void>;
 }
 
-const AppContext = createContext<AppContextType | undefined>(undefined);
+// CORREÇÃO: Inicializar o contexto com um valor padrão em vez de undefined
+const defaultContextValue: AppContextType = {
+  ...initialState,
+  fetchProjetos: async () => {},
+  createProjeto: async () => {},
+  updateProjeto: async () => {},
+  deleteProjeto: async () => {},
+  fetchMonitorias: async () => {},
+  createMonitoria: async () => {},
+  updateMonitoria: async () => {},
+  deleteMonitoria: async () => {},
+  fetchEventos: async () => {},
+  createEvento: async () => {},
+  updateEvento: async () => {},
+  deleteEvento: async () => {},
+  fetchUsuarios: async () => {},
+  updateUsuario: async () => {},
+  deleteUsuario: async () => {},
+  toggleUsuarioStatus: async () => {},
+  fetchMasterData: async () => {},
+  fetchDisciplinas: async () => {},
+  fetchCursos: async () => {},
+};
+
+const AppContext = createContext<AppContextType>(defaultContextValue);
 
 // ===================================================================
 // PROVIDER
@@ -311,7 +341,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
-  // Helper para operações async
+  // Helper para operações async com melhor tratamento de erros
   const handleAsync = async <T,>(
     action: () => Promise<T>,
     loadingKey: keyof AppState["loading"],
@@ -323,14 +353,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         payload: { key: loadingKey, value: true },
       });
       dispatch({ type: "SET_ERROR", payload: { key: errorKey, value: null } });
-      return await action();
+
+      const result = await action();
+      return result;
     } catch (error) {
+      console.error(`Erro em ${loadingKey}:`, error);
+
       const message =
         error instanceof Error ? error.message : "Erro desconhecido";
       dispatch({
         type: "SET_ERROR",
         payload: { key: errorKey, value: message },
       });
+
       throw error;
     } finally {
       dispatch({
@@ -347,9 +382,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await handleAsync(
       async () => {
         const response = await authFetch(`${API_URL}/api/projetos`);
-        if (!response.ok) throw new Error("Erro ao buscar projetos");
+        if (!response.ok) {
+          throw new Error(`Erro ao buscar projetos: ${response.status}`);
+        }
         const projetos = await response.json();
-        dispatch({ type: "SET_PROJETOS", payload: projetos });
+        dispatch({
+          type: "SET_PROJETOS",
+          payload: Array.isArray(projetos) ? projetos : [],
+        });
       },
       "projetos",
       "projetos"
@@ -403,77 +443,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // ===================================================================
-  // MONITORIAS
-  // ===================================================================
-  const fetchMonitorias = async () => {
-    await handleAsync(
-      async () => {
-        const response = await authFetch(`${API_URL}/api/monitoria`);
-        if (!response.ok) throw new Error("Erro ao buscar monitorias");
-        const monitorias = await response.json();
-        dispatch({ type: "SET_MONITORIAS", payload: monitorias });
-      },
-      "monitorias",
-      "monitorias"
-    );
-  };
-
-  const createMonitoria = async (data: MonitoriaData) => {
-    await handleAsync(
-      async () => {
-        const response = await authFetch(`${API_URL}/api/monitoria`, {
-          method: "POST",
-          body: JSON.stringify(data),
-        });
-        if (!response.ok) throw new Error("Erro ao criar monitoria");
-        const monitoria = await response.json();
-        dispatch({ type: "ADD_MONITORIA", payload: monitoria });
-      },
-      "monitorias",
-      "monitorias"
-    );
-  };
-
-  const updateMonitoria = async (id: number, data: Partial<MonitoriaData>) => {
-    await handleAsync(
-      async () => {
-        const response = await authFetch(`${API_URL}/api/monitoria/${id}`, {
-          method: "PATCH",
-          body: JSON.stringify(data),
-        });
-        if (!response.ok) throw new Error("Erro ao atualizar monitoria");
-        const monitoria = await response.json();
-        dispatch({ type: "UPDATE_MONITORIA", payload: monitoria });
-      },
-      "monitorias",
-      "monitorias"
-    );
-  };
-
-  const deleteMonitoria = async (id: number) => {
-    await handleAsync(
-      async () => {
-        const response = await authFetch(`${API_URL}/api/monitoria/${id}`, {
-          method: "DELETE",
-        });
-        if (!response.ok) throw new Error("Erro ao deletar monitoria");
-        dispatch({ type: "DELETE_MONITORIA", payload: id });
-      },
-      "monitorias",
-      "monitorias"
-    );
-  };
-
-  // ===================================================================
   // EVENTOS
   // ===================================================================
   const fetchEventos = async () => {
     await handleAsync(
       async () => {
+        console.log("Buscando eventos...");
         const response = await authFetch(`${API_URL}/api/evento`);
-        if (!response.ok) throw new Error("Erro ao buscar eventos");
+        if (!response.ok) {
+          throw new Error(`Erro ao buscar eventos: ${response.status}`);
+        }
         const eventos = await response.json();
-        dispatch({ type: "SET_EVENTOS", payload: eventos });
+        console.log("Eventos recebidos:", eventos);
+        dispatch({
+          type: "SET_EVENTOS",
+          payload: Array.isArray(eventos) ? eventos : [],
+        });
       },
       "eventos",
       "eventos"
@@ -527,6 +512,71 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // ===================================================================
+  // MONITORIAS
+  // ===================================================================
+  const fetchMonitorias = async () => {
+    await handleAsync(
+      async () => {
+        const response = await authFetch(`${API_URL}/api/monitoria`);
+        if (!response.ok) throw new Error("Erro ao buscar monitorias");
+        const monitorias = await response.json();
+        dispatch({
+          type: "SET_MONITORIAS",
+          payload: Array.isArray(monitorias) ? monitorias : [],
+        });
+      },
+      "monitorias",
+      "monitorias"
+    );
+  };
+
+  const createMonitoria = async (data: MonitoriaData) => {
+    await handleAsync(
+      async () => {
+        const response = await authFetch(`${API_URL}/api/monitoria`, {
+          method: "POST",
+          body: JSON.stringify(data),
+        });
+        if (!response.ok) throw new Error("Erro ao criar monitoria");
+        const monitoria = await response.json();
+        dispatch({ type: "ADD_MONITORIA", payload: monitoria });
+      },
+      "monitorias",
+      "monitorias"
+    );
+  };
+
+  const updateMonitoria = async (id: number, data: Partial<MonitoriaData>) => {
+    await handleAsync(
+      async () => {
+        const response = await authFetch(`${API_URL}/api/monitoria/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify(data),
+        });
+        if (!response.ok) throw new Error("Erro ao atualizar monitoria");
+        const monitoria = await response.json();
+        dispatch({ type: "UPDATE_MONITORIA", payload: monitoria });
+      },
+      "monitorias",
+      "monitorias"
+    );
+  };
+
+  const deleteMonitoria = async (id: number) => {
+    await handleAsync(
+      async () => {
+        const response = await authFetch(`${API_URL}/api/monitoria/${id}`, {
+          method: "DELETE",
+        });
+        if (!response.ok) throw new Error("Erro ao deletar monitoria");
+        dispatch({ type: "DELETE_MONITORIA", payload: id });
+      },
+      "monitorias",
+      "monitorias"
+    );
+  };
+
+  // ===================================================================
   // USUÁRIOS (ADMIN)
   // ===================================================================
   const fetchUsuarios = async () => {
@@ -535,7 +585,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const response = await authFetch(`${API_URL}/api/usuarios`);
         if (!response.ok) throw new Error("Erro ao buscar usuários");
         const usuarios = await response.json();
-        dispatch({ type: "SET_USUARIOS", payload: usuarios });
+        dispatch({
+          type: "SET_USUARIOS",
+          payload: Array.isArray(usuarios) ? usuarios : [],
+        });
       },
       "usuarios",
       "usuarios"
@@ -585,7 +638,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // ===================================================================
-  // MASTER DATA - ENDPOINTS REAIS!!!
+  // MASTER DATA
   // ===================================================================
   const fetchDisciplinas = async () => {
     try {
@@ -594,8 +647,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         throw new Error(`Erro ao buscar disciplinas: ${response.status}`);
       }
       const disciplinas = await response.json();
-      dispatch({ type: "SET_DISCIPLINAS", payload: disciplinas });
+      dispatch({
+        type: "SET_DISCIPLINAS",
+        payload: Array.isArray(disciplinas) ? disciplinas : [],
+      });
     } catch (error) {
+      console.error("Erro ao buscar disciplinas:", error);
       dispatch({ type: "SET_DISCIPLINAS", payload: [] });
       throw error;
     }
@@ -608,8 +665,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         throw new Error(`Erro ao buscar cursos: ${response.status}`);
       }
       const cursos = await response.json();
-      dispatch({ type: "SET_CURSOS", payload: cursos });
+      dispatch({
+        type: "SET_CURSOS",
+        payload: Array.isArray(cursos) ? cursos : [],
+      });
     } catch (error) {
+      console.error("Erro ao buscar cursos:", error);
       dispatch({ type: "SET_CURSOS", payload: [] });
       throw error;
     }
@@ -619,14 +680,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await handleAsync(
       async () => {
         const promises = [
-          fetchDisciplinas().catch((error) => {
-            return null;
-          }),
-          fetchCursos().catch((error) => {
-            return null;
-          }),
+          fetchDisciplinas().catch(() => null),
+          fetchCursos().catch(() => null),
         ];
-
         await Promise.allSettled(promises);
       },
       "masterData",
@@ -666,122 +722,86 @@ export function AppProvider({ children }: { children: ReactNode }) {
 }
 
 // ===================================================================
-// HOOKS
+// HOOKS COM VALIDAÇÃO SEGURA
 // ===================================================================
 export function useApp() {
   const context = useContext(AppContext);
-  if (context === undefined) {
-    throw new Error("useApp must be used within an AppProvider");
+
+  // CORREÇÃO: Remover verificação de undefined pois agora temos valor padrão
+  if (!context) {
+    console.error("useApp deve ser usado dentro de um AppProvider");
+    return defaultContextValue;
   }
+
   return context;
 }
 
 export function useProjetos() {
-  const {
-    projetos,
-    loading,
-    error,
-    fetchProjetos,
-    createProjeto,
-    updateProjeto,
-    deleteProjeto,
-  } = useApp();
+  const context = useApp();
 
   return {
-    projetos,
-    loading: loading.projetos,
-    error: error.projetos,
-    fetchProjetos,
-    createProjeto,
-    updateProjeto,
-    deleteProjeto,
+    projetos: context.projetos || [],
+    loading: context.loading?.projetos || false,
+    error: context.error?.projetos || null,
+    fetchProjetos: context.fetchProjetos,
+    createProjeto: context.createProjeto,
+    updateProjeto: context.updateProjeto,
+    deleteProjeto: context.deleteProjeto,
   };
 }
 
 export function useMonitorias() {
-  const {
-    monitorias,
-    loading,
-    error,
-    fetchMonitorias,
-    createMonitoria,
-    updateMonitoria,
-    deleteMonitoria,
-  } = useApp();
+  const context = useApp();
 
   return {
-    monitorias,
-    loading: loading.monitorias,
-    error: error.monitorias,
-    fetchMonitorias,
-    createMonitoria,
-    updateMonitoria,
-    deleteMonitoria,
+    monitorias: context.monitorias || [],
+    loading: context.loading?.monitorias || false,
+    error: context.error?.monitorias || null,
+    fetchMonitorias: context.fetchMonitorias,
+    createMonitoria: context.createMonitoria,
+    updateMonitoria: context.updateMonitoria,
+    deleteMonitoria: context.deleteMonitoria,
   };
 }
 
 export function useEventos() {
-  const {
-    eventos,
-    loading,
-    error,
-    fetchEventos,
-    createEvento,
-    updateEvento,
-    deleteEvento,
-  } = useApp();
+  const context = useApp();
 
   return {
-    eventos,
-    loading: loading.eventos,
-    error: error.eventos,
-    fetchEventos,
-    createEvento,
-    updateEvento,
-    deleteEvento,
+    eventos: context.eventos || [],
+    loading: context.loading?.eventos || false,
+    error: context.error?.eventos || null,
+    fetchEventos: context.fetchEventos,
+    createEvento: context.createEvento,
+    updateEvento: context.updateEvento,
+    deleteEvento: context.deleteEvento,
   };
 }
 
 export function useAdmin() {
-  const {
-    usuarios,
-    loading,
-    error,
-    fetchUsuarios,
-    updateUsuario,
-    deleteUsuario,
-    toggleUsuarioStatus,
-  } = useApp();
+  const context = useApp();
 
   return {
-    usuarios,
-    loading: loading.usuarios,
-    error: error.usuarios,
-    fetchUsuarios,
-    updateUsuario,
-    deleteUsuario,
-    toggleUsuarioStatus,
+    usuarios: context.usuarios || [],
+    loading: context.loading?.usuarios || false,
+    error: context.error?.usuarios || null,
+    fetchUsuarios: context.fetchUsuarios,
+    updateUsuario: context.updateUsuario,
+    deleteUsuario: context.deleteUsuario,
+    toggleUsuarioStatus: context.toggleUsuarioStatus,
   };
 }
 
 export function useMasterData() {
-  const {
-    disciplinas,
-    cursos,
-    loading,
-    error,
-    fetchMasterData,
-    fetchDisciplinas,
-    fetchCursos,
-  } = useApp();
+  const context = useApp();
 
   return {
-    disciplinas,
-    cursos,
-    loading: loading.masterData,
-    error: error.masterData,
-    fetchMasterData,
-    fetchDisciplinas,
-    fetchCursos,
+    disciplinas: context.disciplinas || [],
+    cursos: context.cursos || [],
+    loading: context.loading?.masterData || false,
+    error: context.error?.masterData || null,
+    fetchMasterData: context.fetchMasterData,
+    fetchDisciplinas: context.fetchDisciplinas,
+    fetchCursos: context.fetchCursos,
   };
 }

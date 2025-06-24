@@ -1,81 +1,96 @@
 "use client";
 
-import { Sidebar } from "@/components/layout/sidebar";
-import { ModeToggle } from "@/components/mode-toggle";
-import { BellIcon, MenuIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { RouteGuard } from "@/components/RouteGuard";
-import { useAuth } from "@/lib/auth";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/lib/auth";
+import { Sidebar } from "@/components/layout/sidebar";
+import { useApp } from "@/contexts/AppContext";
+import { Loader2, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function DashboardLayout({
-  children,
-}: {
+interface DashboardLayoutProps {
   children: React.ReactNode;
-}) {
+}
+
+export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, isAuthenticated } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
+  const appContext = useApp();
+  const [isInitialized, setIsInitialized] = useState(false);
 
+  // Verificar se está autenticado
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
+    if (!isAuthenticated) {
+      window.location.href = "/login";
+      return;
+    }
 
-    return () => clearTimeout(timer);
-  }, []);
+    if (isAuthenticated && !isInitialized) {
+      setIsInitialized(true);
+    }
+  }, [isAuthenticated, isInitialized]);
 
-  if (isLoading) {
+  // Não autenticado
+  if (!isAuthenticated) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-sm text-gray-600">Carregando BioConnect...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-center">Acesso Negado</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
+            <p className="text-muted-foreground">
+              Você precisa estar logado para acessar esta página.
+            </p>
+            <Button onClick={() => (window.location.href = "/login")}>
+              Fazer Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Verificar se o contexto da aplicação está disponível
+  if (!appContext) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-center">Erro de Contexto</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
+            <p className="text-muted-foreground">
+              O contexto da aplicação não foi inicializado corretamente.
+            </p>
+            <Button onClick={() => window.location.reload()}>
+              Recarregar Página
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <RouteGuard>
-      <div className="h-full relative">
-        {/* Sidebar para desktop */}
-        <div className="hidden h-full md:flex md:w-72 md:flex-col md:fixed md:inset-y-0 z-80">
+    <div className="min-h-screen bg-background">
+      <div className="flex h-screen">
+        {/* Sidebar */}
+        <div className="hidden md:flex md:w-64 md:flex-col">
           <Sidebar />
         </div>
 
-        {/* Mobile sidebar */}
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden fixed top-4 left-4 z-40"
-            >
-              <MenuIcon className="h-6 w-6" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-72">
-            <Sidebar />
-          </SheetContent>
-        </Sheet>
-
-        {/* Main content */}
-        <main className="md:pl-72 pb-10 h-full">
-          {/* Top bar */}
-          <div className="flex items-center p-4 border-b h-16 justify-between bg-background">
-            <h1 className="font-semibold text-xl md:ml-2">BioConnect</h1>
-            <div className="flex items-center gap-x-4">
-              <ModeToggle />
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Page Content */}
+          <main className="flex-1 overflow-x-hidden overflow-y-auto bg-background">
+            <div className="container max-w-7xl mx-auto px-6 py-8">
+              {children}
             </div>
-          </div>
-
-          {/* Page content */}
-          <div className="p-6 h-[calc(100vh-64px)] overflow-y-auto">
-            {children}
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
-    </RouteGuard>
+    </div>
   );
 }

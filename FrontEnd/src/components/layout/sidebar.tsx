@@ -18,7 +18,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/components/theme-provider";
-import { logout } from "@/lib/auth";
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
 const routes = [
@@ -50,13 +50,6 @@ const routes = [
     color: "text-orange-500",
     roles: ["USER", "ADMIN"],
   },
-  {
-    label: "Relatórios",
-    icon: BarChart,
-    href: "/relatorios",
-    color: "text-emerald-500",
-    roles: ["USER", "ADMIN"],
-  },
 ];
 
 const adminRoutes = [
@@ -67,31 +60,24 @@ const adminRoutes = [
     color: "text-blue-500",
     roles: ["ADMIN"],
   },
-  {
-    label: "Configurações",
-    icon: Settings,
-    href: "/configuracoes",
-    color: "text-gray-500",
-    roles: ["ADMIN"],
-  },
 ];
 
-interface SidebarProps {
-  userRole?: "ADMIN" | "USER";
-  userName?: string;
-  userImage?: string;
-}
-
-export const Sidebar = ({
-  userRole = "USER",
-  userName = "Usuário",
-  userImage,
-}: SidebarProps) => {
+export const Sidebar = () => {
   const pathname = usePathname();
   const { theme } = useTheme();
+  const { user, logout, isAuthenticated } = useAuth();
 
   const isDarkMode = theme === "dark";
-  const isAdmin = userRole === "ADMIN";
+
+  if (!isAuthenticated || !user) {
+    return null;
+  }
+
+  const isMasterUser = user.login?.toLowerCase() === "master";
+  const isAdmin = user.tipo === "ADMIN" || isMasterUser;
+
+  const userName = user.nome || "Usuário";
+  const userEmail = user.email || "";
 
   const handleLogout = () => {
     try {
@@ -103,11 +89,15 @@ export const Sidebar = ({
     }
   };
 
-  const visibleRoutes = routes.filter((route) =>
-    route.roles.includes(userRole)
+  const visibleRoutes = routes.filter(
+    (route) =>
+      route.roles.includes(user.tipo) ||
+      (isMasterUser && route.roles.includes("ADMIN"))
   );
-  const visibleAdminRoutes = adminRoutes.filter((route) =>
-    route.roles.includes(userRole)
+  const visibleAdminRoutes = adminRoutes.filter(
+    (route) =>
+      route.roles.includes(user.tipo) ||
+      (isMasterUser && route.roles.includes("ADMIN"))
   );
 
   return (
@@ -218,7 +208,7 @@ export const Sidebar = ({
           {/* Informações do usuário */}
           <div className="flex items-center gap-3">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={userImage} alt={userName} />
+              <AvatarImage src="" alt={userName} />
               <AvatarFallback>
                 {userName
                   .split(" ")
@@ -230,7 +220,10 @@ export const Sidebar = ({
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{userName}</p>
-              <div className="flex items-center gap-1">
+              <p className="text-xs text-muted-foreground truncate">
+                {userEmail}
+              </p>{" "}
+              <div className="flex items-center gap-1 mt-1">
                 <Badge
                   variant={isAdmin ? "default" : "secondary"}
                   className={cn(
@@ -243,7 +236,7 @@ export const Sidebar = ({
                   {isAdmin ? (
                     <>
                       <Shield className="mr-1 h-2 w-2" />
-                      Admin
+                      {isMasterUser ? "Coordenador" : "Admin"}{" "}
                     </>
                   ) : (
                     "Professor"

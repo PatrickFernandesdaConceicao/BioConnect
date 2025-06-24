@@ -30,6 +30,9 @@ public class Evento {
 
     private String curso; //verificar
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private StatusEvento status = StatusEvento.PENDENTE;
 
     @NotNull(message = "A data de início é obrigatória")
     private LocalDate dataInicio;

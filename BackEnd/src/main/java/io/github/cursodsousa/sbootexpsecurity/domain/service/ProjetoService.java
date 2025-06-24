@@ -5,6 +5,7 @@ import io.github.cursodsousa.sbootexpsecurity.api.dto.ProjetoDTO;
 import io.github.cursodsousa.sbootexpsecurity.config.ValidacaoException;
 import io.github.cursodsousa.sbootexpsecurity.domain.entity.Projeto;
 import io.github.cursodsousa.sbootexpsecurity.domain.repository.ProjetoRepository;
+import io.github.cursodsousa.sbootexpsecurity.domain.entity.StatusProjeto;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -175,6 +176,26 @@ public class ProjetoService {
         Projeto projeto = projetoRepository.findById(id)
                 .orElseThrow(() -> new ValidacaoException("Projeto não encontrado"));
         projetoRepository.delete(projeto);
+    }
+
+    @Transactional
+    public ProjetoDTO aprovarProjeto(Long id) {
+        Projeto projeto = projetoRepository.findById(id)
+                .orElseThrow(() -> new ValidacaoException("Projeto não encontrado"));
+
+        projeto.setStatus(StatusProjeto.APROVADO);
+        Projeto atualizado = projetoRepository.save(projeto);
+        return converterParaDTO(atualizado);
+    }
+
+    @Transactional
+    public ProjetoDTO rejeitarProjeto(Long id) {
+        Projeto projeto = projetoRepository.findById(id)
+                .orElseThrow(() -> new ValidacaoException("Projeto não encontrado"));
+
+        projeto.setStatus(StatusProjeto.REJEITADO);
+        Projeto atualizado = projetoRepository.save(projeto);
+        return converterParaDTO(atualizado);
     }
 
     @Transactional(readOnly = true)

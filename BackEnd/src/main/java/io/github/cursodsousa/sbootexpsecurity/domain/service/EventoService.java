@@ -6,6 +6,7 @@ import io.github.cursodsousa.sbootexpsecurity.domain.entity.ParticipanteEvento;
 import io.github.cursodsousa.sbootexpsecurity.domain.entity.Recursos;
 import io.github.cursodsousa.sbootexpsecurity.domain.repository.EventoRepository;
 import io.github.cursodsousa.sbootexpsecurity.domain.repository.ParticipanteRepository;
+import io.github.cursodsousa.sbootexpsecurity.domain.entity.StatusEvento;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -52,6 +53,22 @@ public class EventoService {
         }
 
         return eventoRepository.save(evento); // Persiste o evento e seus participantes
+    }
+
+    public Evento aprovarEvento(Long id) {
+        Evento evento = eventoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Evento não encontrado"));
+
+        evento.setStatus(StatusEvento.APROVADO);
+        return eventoRepository.save(evento);
+    }
+
+    public Evento rejeitarEvento(Long id) {
+        Evento evento = eventoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Evento não encontrado"));
+
+        evento.setStatus(StatusEvento.REJEITADO);
+        return eventoRepository.save(evento);
     }
 
     public void deletarEvento(Long id){

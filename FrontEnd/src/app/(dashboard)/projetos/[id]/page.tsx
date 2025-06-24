@@ -175,8 +175,7 @@ export default function ProjetoViewPage() {
                     locale: ptBR,
                   })}
                   <span className="text-sm font-normal text-muted-foreground">
-                    {" "}
-                    até{" "}
+                    {"   "}a{"   "}
                   </span>
                   {format(new Date(projeto.dataTermino), "dd/MM/yyyy", {
                     locale: ptBR,

@@ -171,7 +171,9 @@ export async function authFetch(
 ): Promise<Response> {
   const token = getToken();
 
-  if (isTokenExpired()) {
+  // Verificar se o token não expirou
+  if (token && isTokenExpired()) {
+    console.warn("Token expirado, fazendo logout...");
     logout();
     throw new Error("Token expirado. Faça login novamente.");
   }
@@ -182,10 +184,37 @@ export async function authFetch(
     ...options.headers,
   };
 
-  return fetch(url, {
-    ...options,
-    headers: authHeaders,
-  });
+  try {
+    console.log("Fazendo requisição para:", url);
+    console.log("Headers:", authHeaders);
+
+    const response = await fetch(url, {
+      ...options,
+      headers: authHeaders,
+    });
+
+    console.log("Status da resposta:", response.status);
+
+    // Se não autorizado, fazer logout
+    if (response.status === 401) {
+      console.warn("Não autorizado (401), fazendo logout...");
+      logout();
+      throw new Error("Não autorizado. Faça login novamente.");
+    }
+
+    return response;
+  } catch (error) {
+    console.error("Erro na requisição:", error);
+
+    // Verificar se é erro de rede
+    if (error instanceof TypeError && error.message.includes("fetch")) {
+      throw new Error(
+        "Erro de conexão com o servidor. Verifique se o backend está rodando."
+      );
+    }
+
+    throw error;
+  }
 }
 
 export function useAuth() {

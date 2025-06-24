@@ -211,15 +211,38 @@ class MonitoriaService {
 
 class EventoService {
   async list(): Promise<Evento[]> {
-    const response = await authFetch(`${API_URL}/api/evento`);
-    if (!response.ok) throw new Error("Erro ao buscar eventos");
-    return response.json();
+    try {
+      console.log("Buscando eventos em:", `${API_URL}/api/evento`);
+
+      const response = await authFetch(`${API_URL}/api/evento`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Erro na resposta:", response.status, errorText);
+        throw new Error(
+          `Erro ao buscar eventos: ${response.status} - ${errorText}`
+        );
+      }
+
+      const data = await response.json();
+      console.log("Eventos recebidos:", data);
+
+      return data;
+    } catch (error) {
+      console.error("Erro detalhado ao buscar eventos:", error);
+      throw error;
+    }
   }
 
   async getById(id: number): Promise<Evento> {
-    const response = await authFetch(`${API_URL}/api/evento/${id}`);
-    if (!response.ok) throw new Error("Evento não encontrado");
-    return response.json();
+    try {
+      const response = await authFetch(`${API_URL}/api/evento/${id}`);
+      if (!response.ok) throw new Error("Evento não encontrado");
+      return response.json();
+    } catch (error) {
+      console.error(`Erro ao buscar evento ${id}:`, error);
+      throw error;
+    }
   }
 
   async create(data: EventoData): Promise<Evento> {

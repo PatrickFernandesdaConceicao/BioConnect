@@ -77,4 +77,18 @@ public class EventoRestController {
         eventoService.deletarEvento(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PatchMapping("/{id}/aprovar")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<EventoDTO> aprovarEvento(@PathVariable Long id) {
+        Evento evento = eventoService.aprovarEvento(id);
+        return ResponseEntity.ok(EventoDTO.fromEvento(evento));
+    }
+
+    @PatchMapping("/{id}/rejeitar")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<EventoDTO> rejeitarEvento(@PathVariable Long id) {
+        Evento evento = eventoService.rejeitarEvento(id);
+        return ResponseEntity.ok(EventoDTO.fromEvento(evento));
+    }
 }
