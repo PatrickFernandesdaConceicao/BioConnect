@@ -1,71 +1,82 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-
-const PUBLIC_ROUTES = [
-  "/",
-  "/login",
-  "/register",
-  "/recover-password",
-  "/terms-of-service",
-  "/privacy-policy",
-  "/about",
-  "/contact",
-];
-
-const AUTH_ROUTES = ["/login", "/register", "/recover-password"];
-
-const PROTECTED_ROUTES = [
-  "/dashboard",
-  "/projetos",
-  "/monitorias",
-  "/eventos",
-  "/relatorios",
-  "/profile",
-  "/settings",
-  "/usuarios",
-  "/configuracoes",
-];
-
-const ROLE_BASED_ROUTES = {
-  "/usuarios": ["ADMIN"],
-  "/configuracoes": ["ADMIN"],
-  "/relatorios": ["USER", "ADMIN"],
-} as const;
+import { NextRequest, NextResponse } from "next/server";
 
 type UserRole = "USER" | "ADMIN";
 
+// ===================================================================
+// ROTAS DE CONFIGURAÇÃO
+// ===================================================================
+
+// Rotas públicas que não precisam de autenticação
+const publicRoutes = [
+  "/",
+  "/login",
+  "/auth/login",
+  "/auth/register",
+  "/auth/recover-password",
+  "/register",
+  "/recover-password",
+];
+
+// Rotas de autenticação que redirecionam se já logado
+const authRoutes = [
+  "/login",
+  "/auth/login",
+  "/auth/register",
+  "/register",
+  "/auth/recover-password",
+  "/recover-password",
+];
+
+// Rotas protegidas que requerem autenticação
+const protectedRoutes = [
+  "/dashboard",
+  "/projetos",
+  "/eventos",
+  "/monitorias",
+  "/usuarios",
+  "/profile",
+  "/settings",
+];
+
+// Rotas que requerem permissão de admin
+const adminRoutes = ["/usuarios", "/admin"];
+
+// ===================================================================
+// FUNÇÕES AUXILIARES
+// ===================================================================
+
 function isPublicRoute(pathname: string): boolean {
-  return PUBLIC_ROUTES.some((route) => {
-    if (route === "/") {
-      return pathname === "/";
-    }
-    return pathname.startsWith(route);
-  });
+  return publicRoutes.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
 }
 
 function isAuthRoute(pathname: string): boolean {
-  return AUTH_ROUTES.some((route) => pathname.startsWith(route));
+  return authRoutes.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
 }
 
 function isProtectedRoute(pathname: string): boolean {
-  return PROTECTED_ROUTES.some((route) => pathname.startsWith(route));
+  return protectedRoutes.some((route) => pathname.startsWith(route));
 }
 
-function requiresSpecificRole(pathname: string): string[] | null {
-  for (const [route, roles] of Object.entries(ROLE_BASED_ROUTES)) {
-    if (pathname.startsWith(route)) {
-      return Array.from(roles);
-    }
-  }
-  return null;
+function isAdminRoute(pathname: string): boolean {
+  return adminRoutes.some((route) => pathname.startsWith(route));
 }
 
 function isValidToken(token: string): boolean {
   try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
+    const parts = token.split(".");
+    if (parts.length !== 3) return false;
+
+    const payload = JSON.parse(atob(parts[1]));
     const currentTime = Math.floor(Date.now() / 1000);
-    return payload.exp && payload.exp > currentTime;
+
+    // Verificar se o token não expirou (com margem de 5 minutos)
+    return payload.exp && payload.exp > currentTime + 300;
   } catch (error) {
+    console.error("Token inválido:", error);
     return false;
   }
 }
@@ -80,9 +91,11 @@ function getUserFromToken(
 
     let role: UserRole = "USER";
 
+    // Verificar se é master user
     if (login && login.toLowerCase() === "master") {
       role = "ADMIN";
     } else {
+      // Verificar role do token
       const roleFromToken = payload.role || payload.tipo || payload.authority;
       if (roleFromToken) {
         const normalizedRole = roleFromToken.toString().toUpperCase();
@@ -95,6 +108,7 @@ function getUserFromToken(
         }
       }
 
+      // Verificar authorities array
       if (payload.authorities && Array.isArray(payload.authorities)) {
         const hasAdminAuth = payload.authorities.some(
           (auth: string) =>
@@ -112,7 +126,8 @@ function getUserFromToken(
       tipo: role,
       login: login,
     };
-  } catch {
+  } catch (error) {
+    console.error("Erro ao extrair usuário do token:", error);
     return null;
   }
 }
@@ -122,17 +137,19 @@ function hasPermission(userRole: UserRole, requiredRoles: string[]): boolean {
 }
 
 function getAuthToken(request: NextRequest): string | null {
+  // Tentar cookie primeiro
   const tokenFromCookie = request.cookies.get("bioconnect_token")?.value;
-
   if (tokenFromCookie) {
     return tokenFromCookie;
   }
 
+  // Tentar header Authorization
   const authHeader = request.headers.get("authorization");
   if (authHeader && authHeader.startsWith("Bearer ")) {
     return authHeader.substring(7);
   }
 
+  // Tentar header customizado
   const customHeader = request.headers.get("x-auth-token");
   if (customHeader) {
     return customHeader;
@@ -148,103 +165,140 @@ function createRedirectResponse(
 ): NextResponse {
   const redirectUrl = new URL(destination, request.url);
 
+  // Preservar callback URL para rotas protegidas
   if (
     preserveCallback &&
     isProtectedRoute(request.nextUrl.pathname) &&
     destination.includes("/login") &&
-    request.nextUrl.pathname !== "/dashboard"
+    request.nextUrl.pathname !== "/dashboard" &&
+    request.nextUrl.pathname !== "/"
   ) {
     redirectUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);
   }
 
-  return NextResponse.redirect(redirectUrl);
+  const response = NextResponse.redirect(redirectUrl);
+
+  // Adicionar headers de segurança
+  response.headers.set("X-Middleware-Cache", "no-cache");
+
+  return response;
 }
+
+// ===================================================================
+// MIDDLEWARE PRINCIPAL
+// ===================================================================
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Ignorar arquivos estáticos e APIs internas
   if (
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/api/") ||
     pathname.includes(".") ||
-    pathname.startsWith("/favicon")
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/static/") ||
+    pathname.startsWith("/images/") ||
+    pathname.startsWith("/icons/")
   ) {
     return NextResponse.next();
   }
 
+  console.log(`[Middleware] Processando rota: ${pathname}`);
+
+  // Obter token de autenticação
   const token = getAuthToken(request);
   const isAuthenticated = token ? isValidToken(token) : false;
 
-  if (token && !isAuthenticated) {
-    const response = NextResponse.next();
-    response.cookies.delete("bioconnect_token");
-    response.cookies.delete("bioconnect_user");
+  console.log(
+    `[Middleware] Token presente: ${!!token}, Válido: ${isAuthenticated}`
+  );
 
-    if (isProtectedRoute(pathname)) {
-      return createRedirectResponse(request, "/login", false);
-    }
+  // === LÓGICA DE ROTEAMENTO ===
 
-    return response;
-  }
-
-  if (isPublicRoute(pathname)) {
+  // 1. Rotas públicas - permitir acesso livre
+  if (isPublicRoute(pathname) && !isAuthRoute(pathname)) {
+    console.log(`[Middleware] Rota pública permitida: ${pathname}`);
     return NextResponse.next();
   }
 
+  // 2. Rotas de autenticação - redirecionar se já autenticado
   if (isAuthRoute(pathname)) {
     if (isAuthenticated) {
-      const callbackUrl = request.nextUrl.searchParams.get("callbackUrl");
-
-      if (
-        callbackUrl &&
-        callbackUrl.startsWith("/") &&
-        callbackUrl !== "/login"
-      ) {
-        return createRedirectResponse(request, callbackUrl, false);
-      }
-
-      return createRedirectResponse(request, "/dashboard", false);
+      console.log(
+        `[Middleware] Usuário já autenticado, redirecionando para dashboard`
+      );
+      return createRedirectResponse(request, "/dashboard");
     }
+    console.log(`[Middleware] Rota de auth permitida: ${pathname}`);
     return NextResponse.next();
   }
 
-  if (isProtectedRoute(pathname) || requiresSpecificRole(pathname)) {
+  // 3. Rotas protegidas - verificar autenticação
+  if (isProtectedRoute(pathname)) {
     if (!isAuthenticated) {
-      if (pathname === "/dashboard") {
-        return createRedirectResponse(request, "/login", false);
-      }
-
-      const shouldPreserveCallback =
-        pathname.startsWith("/projetos/") ||
-        pathname.startsWith("/eventos/") ||
-        pathname.startsWith("/monitorias/");
-
-      return createRedirectResponse(request, "/login", shouldPreserveCallback);
+      console.log(`[Middleware] Não autenticado, redirecionando para login`);
+      return createRedirectResponse(request, "/login", true);
     }
 
-    const requiredRoles = requiresSpecificRole(pathname);
-    if (requiredRoles) {
-      const userInfo = getUserFromToken(token!);
+    // 4. Verificar permissões para rotas admin
+    if (isAdminRoute(pathname)) {
+      const userData = getUserFromToken(token!);
 
-      if (!userInfo || !hasPermission(userInfo.role, requiredRoles)) {
-        return createRedirectResponse(
-          request,
-          "/dashboard?error=access_denied",
-          false
+      if (!userData || !hasPermission(userData.role, ["ADMIN"])) {
+        console.log(
+          `[Middleware] Sem permissão admin, redirecionando para dashboard`
         );
+        return createRedirectResponse(request, "/dashboard");
       }
     }
 
+    console.log(`[Middleware] Rota protegida permitida: ${pathname}`);
     return NextResponse.next();
   }
 
+  // 5. Rota raiz - redirecionar baseado na autenticação
   if (pathname === "/") {
-    return createRedirectResponse(request, "/login", false);
+    if (isAuthenticated) {
+      console.log(
+        `[Middleware] Usuário autenticado na raiz, redirecionando para dashboard`
+      );
+      return createRedirectResponse(request, "/dashboard");
+    }
+    console.log(
+      `[Middleware] Usuário não autenticado na raiz, permitindo acesso`
+    );
+    return NextResponse.next();
   }
 
-  return NextResponse.next();
+  // 6. Outras rotas - verificar se precisa de autenticação
+  if (isAuthenticated) {
+    console.log(
+      `[Middleware] Usuário autenticado, permitindo acesso: ${pathname}`
+    );
+    return NextResponse.next();
+  } else {
+    console.log(
+      `[Middleware] Rota não reconhecida, redirecionando para login: ${pathname}`
+    );
+    return createRedirectResponse(request, "/login", true);
+  }
 }
 
+// ===================================================================
+// CONFIGURAÇÃO DO MATCHER
+// ===================================================================
+
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\..*$).*)"],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder files
+     */
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\..*|static|images|icons).*)",
+  ],
 };

@@ -28,6 +28,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+// FIX: Schema corrigido para resolver erro TypeScript
 const loginSchema = z.object({
   login: z.string().min(1, {
     message: "Login é obrigatório",
@@ -35,7 +36,7 @@ const loginSchema = z.object({
   senha: z.string().min(1, {
     message: "A senha é obrigatória",
   }),
-  rememberMe: z.boolean().default(false),
+  rememberMe: z.boolean().default(false), // Removido opcional para corrigir TypeScript
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -61,43 +62,73 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
+  // FIX: Resolver corrigido com tipos compatíveis
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       login: "",
       senha: "",
-      rememberMe: false,
+      rememberMe: false, // Sempre false como padrão
     },
   });
 
   useEffect(() => {
     const checkExistingAuth = () => {
-      const token =
-        localStorage.getItem("bioconnect_token") ||
-        sessionStorage.getItem("bioconnect_token");
-      const user =
-        localStorage.getItem("bioconnect_user") ||
-        sessionStorage.getItem("bioconnect_user");
+      try {
+        const token =
+          localStorage.getItem("bioconnect_token") ||
+          sessionStorage.getItem("bioconnect_token");
+        const user =
+          localStorage.getItem("bioconnect_user") ||
+          sessionStorage.getItem("bioconnect_user");
 
-      if (token && user) {
-        const callbackUrl = searchParams.get("callbackUrl");
-        const redirectPath =
-          callbackUrl && callbackUrl.startsWith("/")
-            ? callbackUrl
-            : "/dashboard";
+        if (token && user) {
+          // Verificar se o token não expirou
+          if (!isTokenExpired(token)) {
+            const callbackUrl = searchParams.get("callbackUrl");
+            const redirectPath =
+              callbackUrl && callbackUrl.startsWith("/")
+                ? callbackUrl
+                : "/dashboard";
 
-        router.push(redirectPath);
-        return;
+            router.push(redirectPath);
+            return;
+          } else {
+            // Token expirado, limpar
+            clearAuthData();
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao verificar autenticação:", error);
+        clearAuthData();
       }
 
       setIsCheckingAuth(false);
     };
 
-    const timer = setTimeout(checkExistingAuth, 100);
+    const timer = setTimeout(checkExistingAuth, 200);
     return () => clearTimeout(timer);
   }, [router, searchParams]);
 
+  const isTokenExpired = (token: string): boolean => {
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      const currentTime = Math.floor(Date.now() / 1000);
+      return payload.exp < currentTime;
+    } catch {
+      return true;
+    }
+  };
+
+  const clearAuthData = () => {
+    localStorage.removeItem("bioconnect_token");
+    localStorage.removeItem("bioconnect_user");
+    sessionStorage.removeItem("bioconnect_token");
+    sessionStorage.removeItem("bioconnect_user");
+  };
+
   const saveAuthData = (token: string, userData: any, rememberMe: boolean) => {
+    // Configurar dados do usuário
     if (userData.login?.toLowerCase() === "master") {
       userData.tipo = "ADMIN";
       localStorage.setItem("bioconnect_token", token);
@@ -110,6 +141,7 @@ export default function LoginPage() {
       storage.setItem("bioconnect_user", JSON.stringify(userData));
     }
 
+    // Cookie para compatibilidade
     document.cookie = `bioconnect_token=${token}; path=/; ${
       rememberMe ? "expires=Fri, 31 Dec 9999 23:59:59 GMT" : ""
     }`;
@@ -130,22 +162,32 @@ export default function LoginPage() {
   }): Promise<LoginResponse> {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-    const response = await fetch(`${apiUrl}/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(credentials),
-    });
+    try {
+      const response = await fetch(`${apiUrl}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(credentials),
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.message || `Erro ${response.status}: ${response.statusText}`
-      );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `Erro ${response.status}: ${response.statusText}`
+        );
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Erro na autenticação:", error);
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        throw new Error(
+          "Erro de conexão. Verifique se o backend está rodando."
+        );
+      }
+      throw error;
     }
-
-    return await response.json();
   }
 
   const fetchUserData = async (token: string) => {
@@ -162,7 +204,7 @@ export default function LoginPage() {
         return await response.json();
       }
     } catch (error) {
-      return null;
+      console.error("Erro ao buscar dados do usuário:", error);
     }
     return null;
   };
@@ -193,6 +235,7 @@ export default function LoginPage() {
 
       let userData = null;
 
+      // Tentar buscar dados completos do usuário
       if (response.user) {
         userData = {
           id: response.user.id,
@@ -208,50 +251,59 @@ export default function LoginPage() {
           ativo: response.user.ativo ?? true,
         };
       } else {
-        const userFromAPI = await fetchUserData(response.token);
-
-        if (userFromAPI) {
+        // Fallback: tentar extrair dados do token
+        const tokenData = decodeToken(response.token);
+        if (tokenData) {
           userData = {
-            id: userFromAPI.id,
-            nome: userFromAPI.nome,
-            email: userFromAPI.email,
-            login: userFromAPI.login,
-            tipo:
-              values.login.toLowerCase() === "master"
-                ? "ADMIN"
-                : mapRoleToTipo(userFromAPI.tipo || userFromAPI.role || "USER"),
-            ativo: userFromAPI.ativo ?? true,
-          };
-        } else {
-          const tokenPayload = decodeToken(response.token);
-          userData = {
-            id: tokenPayload?.sub || "unknown",
-            nome: values.login,
-            email: `${values.login}@biopark.edu.br`,
+            id: tokenData.id || tokenData.sub || "unknown",
+            nome: tokenData.nome || tokenData.name || values.login,
+            email: tokenData.email || "",
             login: values.login,
             tipo:
               values.login.toLowerCase() === "master"
                 ? "ADMIN"
-                : mapRoleToTipo(tokenPayload?.role || "USER"),
+                : mapRoleToTipo(tokenData.role || tokenData.tipo || "USER"),
             ativo: true,
           };
         }
       }
 
+      // Tentar buscar dados adicionais do usuário
+      const additionalUserData = await fetchUserData(response.token);
+      if (additionalUserData) {
+        userData = { ...userData, ...additionalUserData };
+      }
+
+      if (!userData) {
+        throw new Error("Não foi possível obter dados do usuário");
+      }
+
+      // Salvar dados de autenticação
       saveAuthData(response.token, userData, values.rememberMe);
 
       toast.success("Login realizado com sucesso!", {
-        description: "Você será redirecionado em instantes.",
+        description: `Bem-vindo(a), ${userData.nome}`,
       });
-      router.push("/dashboard");
-    } catch (error) {
+
+      // Redirecionar
+      const callbackUrl = searchParams.get("callbackUrl");
+      const redirectPath =
+        callbackUrl && callbackUrl.startsWith("/") ? callbackUrl : "/dashboard";
+
+      setTimeout(() => {
+        router.push(redirectPath);
+      }, 1000);
+    } catch (error: any) {
+      console.error("Erro ao fazer login:", error);
+
       let errorMessage = "Verifique suas credenciais e tente novamente.";
 
-      if (error instanceof Error) {
-        if (error.message.includes("401")) {
-          errorMessage = "Credenciais inválidas. Verifique seu login e senha.";
-        } else if (error.message.includes("403")) {
-          errorMessage = "Acesso negado. Conta pode estar inativa.";
+      if (error.message) {
+        if (
+          error.message.includes("401") ||
+          error.message.includes("Unauthorized")
+        ) {
+          errorMessage = "Login ou senha incorretos. Conta pode estar inativa.";
         } else if (error.message.includes("404")) {
           errorMessage = "Serviço de autenticação não encontrado.";
         } else if (error.message.includes("500")) {
@@ -259,7 +311,8 @@ export default function LoginPage() {
             "Erro interno do servidor. Tente novamente mais tarde.";
         } else if (
           error.message.toLowerCase().includes("network") ||
-          error.message.toLowerCase().includes("fetch")
+          error.message.toLowerCase().includes("fetch") ||
+          error.message.toLowerCase().includes("conexão")
         ) {
           errorMessage =
             "Erro de conexão. Verifique sua internet e tente novamente.";
@@ -312,9 +365,9 @@ export default function LoginPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Entrar no BioConnect</CardTitle>
+              <CardTitle>Bem-vindo de volta</CardTitle>
               <CardDescription>
-                Entre com suas credenciais para acessar sua conta
+                Entre com suas credenciais para acessar o sistema
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -331,7 +384,6 @@ export default function LoginPage() {
                         <FormLabel>Login</FormLabel>
                         <FormControl>
                           <Input
-                            type="text"
                             placeholder="Digite seu login"
                             autoComplete="username"
                             {...field}
@@ -341,15 +393,12 @@ export default function LoginPage() {
                       </FormItem>
                     )}
                   />
-
                   <FormField
                     control={form.control}
                     name="senha"
                     render={({ field }) => (
                       <FormItem>
-                        <div className="flex items-center justify-between">
-                          <FormLabel>Senha</FormLabel>
-                        </div>
+                        <FormLabel>Senha</FormLabel>
                         <FormControl>
                           <Input
                             type="password"
@@ -362,7 +411,6 @@ export default function LoginPage() {
                       </FormItem>
                     )}
                   />
-
                   <FormField
                     control={form.control}
                     name="rememberMe"
@@ -375,62 +423,71 @@ export default function LoginPage() {
                           />
                         </FormControl>
                         <div className="space-y-1 leading-none">
-                          <FormLabel>Lembrar de mim</FormLabel>
+                          <FormLabel>Lembrar-me</FormLabel>
                         </div>
                       </FormItem>
                     )}
                   />
-
                   <Button
                     type="submit"
                     className="w-full"
                     disabled={isSubmitting}
                   >
-                    {isSubmitting ? "Entrando..." : "Entrar"}
+                    {isSubmitting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Entrando...
+                      </>
+                    ) : (
+                      "Entrar"
+                    )}
                   </Button>
                 </form>
               </Form>
             </CardContent>
-            <CardFooter className="flex justify-center">
-              <p className="text-sm text-slate-600">
+            <CardFooter className="flex flex-col space-y-2">
+              <div className="text-center text-sm text-muted-foreground">
+                <Link
+                  href="/auth/recover-password"
+                  className="underline underline-offset-4 hover:text-primary"
+                >
+                  Esqueceu sua senha?
+                </Link>
+              </div>
+              <div className="text-center text-sm text-muted-foreground">
                 Não tem uma conta?{" "}
                 <Link
-                  href="/register"
-                  className="text-blue-600 hover:underline font-medium"
+                  href="/auth/register"
+                  className="underline underline-offset-4 hover:text-primary"
                 >
-                  Registre-se aqui
+                  Criar conta
                 </Link>
-              </p>
+              </div>
             </CardFooter>
           </Card>
         </div>
       </div>
 
-      <div className="hidden lg:block lg:w-1/2 bg-gradient-to-br from-blue-600 to-indigo-700">
-        <div className="h-full flex flex-col justify-center items-center p-12">
-          <div className="max-w-md text-center text-white">
-            <h1 className="text-4xl font-bold mb-4">Bem-vindo de volta!</h1>
-            <p className="text-xl text-blue-100 mb-8">
-              Acesse o BioConnect para gerenciar seus projetos acadêmicos,
-              eventos e monitorias da Faculdade Biopark.
-            </p>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="bg-white/10 p-3 rounded-lg">
-                <h3 className="font-semibold mb-1">Projetos</h3>
-                <p className="text-blue-100">Pesquisa e Extensão</p>
-              </div>
-              <div className="bg-white/10 p-3 rounded-lg">
-                <h3 className="font-semibold mb-1">Eventos</h3>
-                <p className="text-blue-100">Acadêmicos</p>
-              </div>
-              <div className="bg-white/10 p-3 rounded-lg">
-                <h3 className="font-semibold mb-1">Monitorias</h3>
-                <p className="text-blue-100">Disciplinas</p>
-              </div>
-              <div className="bg-white/10 p-3 rounded-lg">
-                <h3 className="font-semibold mb-1">Relatórios</h3>
-                <p className="text-blue-100">Detalhados</p>
-              </div>
+      {/* Seção lateral com imagem/informações */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 to-indigo-700 items-center justify-center p-8">
+        <div className="text-center text-white">
+          <h2 className="text-4xl font-bold mb-4">BioConnect</h2>
+          <p className="text-xl text-blue-100 mb-8 max-w-md">
+            Sistema integrado para gestão de projetos acadêmicos, eventos e
+            monitorias
+          </p>
+          <div className="grid grid-cols-1 gap-4 max-w-xs">
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+              <h3 className="font-semibold mb-2">Gestão Completa</h3>
+              <p className="text-sm text-blue-100">
+                Projetos, eventos e monitorias em um só lugar
+              </p>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+              <h3 className="font-semibold mb-2">Segurança</h3>
+              <p className="text-sm text-blue-100">
+                Autenticação segura e proteção de dados
+              </p>
             </div>
           </div>
         </div>

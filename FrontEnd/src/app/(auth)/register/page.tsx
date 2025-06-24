@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,7 +29,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  UserPlus,
+  Eye,
+  EyeOff,
+  CheckCircle,
+  ArrowLeft,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 
+// Schema de validação
 const registerSchema = z
   .object({
     nome: z.string().min(3, {
@@ -80,7 +91,21 @@ interface RegisterRequest {
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState({
+    score: 0,
+    feedback: [] as string[],
+  });
+
+  // Redirecionar se já estiver logado
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push("/dashboard");
+    }
+  }, [isAuthenticated, router]);
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -94,34 +119,85 @@ export default function RegisterPage() {
     },
   });
 
+  // Verificar força da senha
+  const checkPasswordStrength = (password: string) => {
+    const feedback: string[] = [];
+    let score = 0;
+
+    if (password.length >= 8) {
+      score += 1;
+    } else {
+      feedback.push("Pelo menos 8 caracteres");
+    }
+
+    if (/[A-Z]/.test(password)) {
+      score += 1;
+    } else {
+      feedback.push("Uma letra maiúscula");
+    }
+
+    if (/[a-z]/.test(password)) {
+      score += 1;
+    } else {
+      feedback.push("Uma letra minúscula");
+    }
+
+    if (/[0-9]/.test(password)) {
+      score += 1;
+    } else {
+      feedback.push("Um número");
+    }
+
+    if (/[^A-Za-z0-9]/.test(password)) {
+      score += 1;
+    } else {
+      feedback.push("Um caractere especial");
+    }
+
+    setPasswordStrength({ score, feedback });
+  };
+
+  // Monitorar mudanças na senha
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === "senha" && value.senha) {
+        checkPasswordStrength(value.senha);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+
   async function registerUser(
     userData: RegisterRequest
   ): Promise<RegisterResponse> {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-    const user = `{"login":"${userData.login}","senha":"${userData.senha}","nome":"${userData.nome}","email":"${userData.email}","role":"USER"}`;
+    try {
+      const response = await fetch(`${apiUrl}/auth/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userData),
+      });
 
-    const response = await fetch(`${apiUrl}/auth/register`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: user,
-    });
+      const responseData = await response.json().catch(() => ({}));
 
-    const responseData = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw {
+          message:
+            responseData.message ||
+            `Erro ${response.status}: ${response.statusText}`,
+          errors: responseData.errors || {},
+          status: response.status,
+        };
+      }
 
-    if (!response.ok) {
-      throw {
-        message:
-          responseData.message ||
-          `Erro ${response.status}: ${response.statusText}`,
-        errors: responseData.errors || {},
-        status: response.status,
-      };
+      return responseData;
+    } catch (error) {
+      console.error("Erro na requisição de registro:", error);
+      throw error;
     }
-
-    return responseData;
   }
 
   async function onSubmit(values: RegisterFormValues) {
@@ -145,12 +221,14 @@ export default function RegisterPage() {
 
       form.reset();
 
+      // Redirecionar para login após 2 segundos
       setTimeout(() => {
-        router.push("/dashboard");
+        router.push("/login");
       }, 2000);
     } catch (error: any) {
       console.error("Erro ao registrar:", error);
 
+      // Tratar erros de validação do backend
       if (error.errors && typeof error.errors === "object") {
         Object.keys(error.errors).forEach((key) => {
           const fieldMap: Record<string, keyof RegisterFormValues> = {
@@ -169,6 +247,7 @@ export default function RegisterPage() {
           }
         });
       } else {
+        // Tratar outros tipos de erro
         let errorMessage = "Verifique os dados e tente novamente.";
 
         if (error.status === 400) {
@@ -176,17 +255,9 @@ export default function RegisterPage() {
             "Dados inválidos. Verifique as informações fornecidas.";
         } else if (error.status === 409) {
           errorMessage = "Email ou login já cadastrados. Tente outros dados.";
-        } else if (error.status === 422) {
-          errorMessage = "Dados não atendem aos critérios de validação.";
         } else if (error.status === 500) {
           errorMessage =
             "Erro interno do servidor. Tente novamente mais tarde.";
-        } else if (
-          error.message.toLowerCase().includes("network") ||
-          error.message.toLowerCase().includes("fetch")
-        ) {
-          errorMessage =
-            "Erro de conexão. Verifique sua internet e tente novamente.";
         } else if (error.message) {
           errorMessage = error.message;
         }
@@ -200,12 +271,46 @@ export default function RegisterPage() {
     }
   }
 
+  const getPasswordStrengthColor = () => {
+    if (passwordStrength.score <= 2) return "bg-red-500";
+    if (passwordStrength.score <= 3) return "bg-yellow-500";
+    return "bg-green-500";
+  };
+
+  const getPasswordStrengthText = () => {
+    if (passwordStrength.score <= 2) return "Fraca";
+    if (passwordStrength.score <= 3) return "Média";
+    return "Forte";
+  };
+
+  if (isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" />
+              <p className="text-muted-foreground">Redirecionando...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen">
-      {/* Coluna esquerda - Formulário de registro */}
       <div className="flex flex-col items-center justify-center w-full lg:w-1/2 p-8">
         <div className="w-full max-w-md">
-          <Link href="/" className="flex items-center mb-8 justify-center">
+          {/* Link para voltar */}
+          <Link href="/login" className="inline-block mb-4">
+            <Button variant="ghost" size="sm" className="gap-2">
+              <ArrowLeft className="h-4 w-4" /> Voltar para login
+            </Button>
+          </Link>
+
+          {/* Logo */}
+          <div className="flex items-center justify-center mb-8">
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -222,13 +327,16 @@ export default function RegisterPage() {
             <span className="ml-2 text-2xl font-bold text-slate-900">
               BioConnect
             </span>
-          </Link>
+          </div>
 
           <Card>
             <CardHeader>
-              <CardTitle>Criar uma conta</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <UserPlus className="h-5 w-5" />
+                Criar conta
+              </CardTitle>
               <CardDescription>
-                Preencha os campos abaixo para se registrar no BioConnect.
+                Preencha as informações abaixo para criar sua conta
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -279,7 +387,7 @@ export default function RegisterPage() {
                     name="login"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Usuário</FormLabel>
+                        <FormLabel>Nome de usuário</FormLabel>
                         <FormControl>
                           <Input
                             placeholder="Digite seu nome de usuário"
@@ -303,17 +411,61 @@ export default function RegisterPage() {
                         <FormItem>
                           <FormLabel>Senha</FormLabel>
                           <FormControl>
-                            <Input
-                              type="password"
-                              placeholder="••••••••"
-                              autoComplete="new-password"
-                              {...field}
-                            />
+                            <div className="relative">
+                              <Input
+                                type={showPassword ? "text" : "password"}
+                                placeholder="••••••••"
+                                autoComplete="new-password"
+                                {...field}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                onClick={() => setShowPassword(!showPassword)}
+                              >
+                                {showPassword ? (
+                                  <EyeOff className="h-4 w-4" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
                           </FormControl>
-                          {/* <FormDescription className="text-xs">
-                            Mín. 8 caracteres, incluindo maiúscula, minúscula e
-                            número
-                          </FormDescription> */}
+                          {field.value && (
+                            <div className="mt-2">
+                              <div className="flex justify-between text-xs mb-1">
+                                <span>Força da senha:</span>
+                                <span
+                                  className={
+                                    passwordStrength.score <= 2
+                                      ? "text-red-600"
+                                      : passwordStrength.score <= 3
+                                      ? "text-yellow-600"
+                                      : "text-green-600"
+                                  }
+                                >
+                                  {getPasswordStrengthText()}
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className={`h-2 rounded-full transition-all ${getPasswordStrengthColor()}`}
+                                  style={{
+                                    width: `${
+                                      (passwordStrength.score / 5) * 100
+                                    }%`,
+                                  }}
+                                ></div>
+                              </div>
+                              {passwordStrength.feedback.length > 0 && (
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Faltam: {passwordStrength.feedback.join(", ")}
+                                </div>
+                              )}
+                            </div>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
@@ -326,12 +478,29 @@ export default function RegisterPage() {
                         <FormItem>
                           <FormLabel>Confirmar senha</FormLabel>
                           <FormControl>
-                            <Input
-                              type="password"
-                              placeholder="••••••••"
-                              autoComplete="new-password"
-                              {...field}
-                            />
+                            <div className="relative">
+                              <Input
+                                type={showConfirmPassword ? "text" : "password"}
+                                placeholder="••••••••"
+                                autoComplete="new-password"
+                                {...field}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                onClick={() =>
+                                  setShowConfirmPassword(!showConfirmPassword)
+                                }
+                              >
+                                {showConfirmPassword ? (
+                                  <EyeOff className="h-4 w-4" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -351,26 +520,20 @@ export default function RegisterPage() {
                           />
                         </FormControl>
                         <div className="space-y-1 leading-none">
-                          <FormLabel>Aceito os termos e condições</FormLabel>
+                          <FormLabel>
+                            Aceito os{" "}
+                            <Link
+                              href="/terms"
+                              className="underline underline-offset-4 hover:text-primary"
+                              target="_blank"
+                            >
+                              termos e condições
+                            </Link>
+                          </FormLabel>
                           <FormDescription>
-                            Ao criar uma conta, você concorda com nossos{" "}
-                            <Link
-                              href="/terms-of-service"
-                              className="text-blue-600 hover:underline"
-                              target="_blank"
-                            >
-                              Termos de serviço
-                            </Link>{" "}
-                            e{" "}
-                            <Link
-                              href="/privacy-policy"
-                              className="text-blue-600 hover:underline"
-                              target="_blank"
-                            >
-                              Política de privacidade
-                            </Link>{" "}
-                            (LGPD)
+                            Você deve aceitar os termos para criar uma conta.
                           </FormDescription>
+                          <FormMessage />
                         </div>
                       </FormItem>
                     )}
@@ -381,54 +544,64 @@ export default function RegisterPage() {
                     className="w-full"
                     disabled={isSubmitting}
                   >
-                    {isSubmitting ? "Criando conta..." : "Criar conta"}
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Criando conta...
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Criar conta
+                      </>
+                    )}
                   </Button>
                 </form>
               </Form>
             </CardContent>
-            <CardFooter className="flex justify-center">
-              <p className="text-sm text-slate-600">
+            <CardFooter>
+              <div className="text-center text-sm text-muted-foreground w-full">
                 Já tem uma conta?{" "}
                 <Link
                   href="/login"
-                  className="text-blue-600 hover:underline font-medium"
+                  className="underline underline-offset-4 hover:text-primary"
                 >
-                  Faça login
+                  Fazer login
                 </Link>
-              </p>
+              </div>
             </CardFooter>
           </Card>
         </div>
       </div>
 
-      {/* Coluna direita - Banner informativo */}
-      <div className="hidden lg:block lg:w-1/2 bg-gradient-to-br from-blue-600 to-indigo-700">
-        <div className="h-full flex flex-col justify-center items-center p-12">
-          <div className="max-w-md text-center text-white">
-            <h1 className="text-4xl font-bold mb-4">Bem-vindo ao BioConnect</h1>
-            <p className="text-xl text-blue-100 mb-8">
-              Junte-se à comunidade acadêmica da Faculdade Biopark para
-              gerenciar projetos, eventos e monitorias.
-            </p>
-            <div className="grid grid-cols-1 gap-4 text-sm">
-              <div className="bg-white/10 p-4 rounded-lg">
-                <h3 className="font-semibold mb-2">👨‍🎓 Alunos</h3>
-                <p className="text-blue-100">
-                  Consulte projetos, inscreva-se em eventos e monitorias
-                </p>
-              </div>
-              <div className="bg-white/10 p-4 rounded-lg">
-                <h3 className="font-semibold mb-2">👨‍🏫 Professores</h3>
-                <p className="text-blue-100">
-                  Cadastre projetos de pesquisa e extensão, gerencie monitorias
-                </p>
-              </div>
-              <div className="bg-white/10 p-4 rounded-lg">
-                <h3 className="font-semibold mb-2">👨‍💼 Coordenadores</h3>
-                <p className="text-blue-100">
-                  Aprove projetos e monitorias, organize eventos
-                </p>
-              </div>
+      {/* Seção lateral com informações */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 to-indigo-700 items-center justify-center p-8">
+        <div className="text-center text-white max-w-md">
+          <div className="w-16 h-16 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-6">
+            <UserPlus className="h-8 w-8" />
+          </div>
+          <h2 className="text-3xl font-bold mb-4">Junte-se ao BioConnect</h2>
+          <p className="text-xl text-blue-100 mb-8">
+            Gerencie projetos, eventos e monitorias de forma integrada
+          </p>
+          <div className="space-y-4 text-left">
+            <div className="flex items-center space-x-3">
+              <CheckCircle className="h-5 w-5 text-green-300" />
+              <p className="text-blue-100">
+                Acesso completo às funcionalidades
+              </p>
+            </div>
+            <div className="flex items-center space-x-3">
+              <CheckCircle className="h-5 w-5 text-green-300" />
+              <p className="text-blue-100">Interface intuitiva e responsiva</p>
+            </div>
+            <div className="flex items-center space-x-3">
+              <CheckCircle className="h-5 w-5 text-green-300" />
+              <p className="text-blue-100">Dados seguros e protegidos</p>
+            </div>
+            <div className="flex items-center space-x-3">
+              <CheckCircle className="h-5 w-5 text-green-300" />
+              <p className="text-blue-100">Suporte técnico especializado</p>
             </div>
           </div>
         </div>

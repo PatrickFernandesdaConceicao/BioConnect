@@ -1,6 +1,8 @@
-"use client";
+import { useState, useEffect } from "react";
 
-import { useEffect, useState } from "react";
+// ===================================================================
+// INTERFACES E TIPOS
+// ===================================================================
 
 export interface User {
   id: string;
@@ -8,9 +10,19 @@ export interface User {
   email: string;
   login: string;
   tipo: "USER" | "ADMIN";
-  instituicao?: string;
-  curso?: string;
   ativo: boolean;
+  dataCriacao?: string;
+}
+
+export interface AuthState {
+  isAuthenticated: boolean;
+  user: User | null;
+  token: string | null;
+}
+
+export interface LoginData {
+  login: string;
+  senha: string;
 }
 
 export interface RegisterData {
@@ -18,7 +30,7 @@ export interface RegisterData {
   senha: string;
   nome: string;
   email: string;
-  role: "USER" | "ADMIN";
+  role: string;
 }
 
 export interface RegisterResponse {
@@ -28,61 +40,50 @@ export interface RegisterResponse {
   errors?: Record<string, string>;
 }
 
-export interface AuthState {
-  isAuthenticated: boolean;
-  user: User | null;
-  token: string | null;
-}
-
-export function saveAuthData(
-  token: string,
-  userData: User,
-  rememberMe: boolean = false
-): void {
-  if (typeof window === "undefined") return;
-
-  const storage = rememberMe ? localStorage : sessionStorage;
-
-  storage.setItem("bioconnect_token", token);
-  storage.setItem("bioconnect_user", JSON.stringify(userData));
-
-  const oppositeStorage = rememberMe ? sessionStorage : localStorage;
-  oppositeStorage.removeItem("bioconnect_token");
-  oppositeStorage.removeItem("bioconnect_user");
-}
-
-export function isAuthenticated(): boolean {
-  if (typeof window === "undefined") return false;
-
-  const token = getToken();
-  const user = getUser();
-
-  return !!(token && user && !isTokenExpired());
-}
+// ===================================================================
+// FUNÇÕES DE AUTENTICAÇÃO
+// ===================================================================
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
 
-  return (
-    localStorage.getItem("bioconnect_token") ||
-    sessionStorage.getItem("bioconnect_token")
-  );
+  try {
+    return (
+      localStorage.getItem("bioconnect_token") ||
+      sessionStorage.getItem("bioconnect_token")
+    );
+  } catch (error) {
+    console.error("Erro ao obter token:", error);
+    return null;
+  }
 }
 
 export function getUser(): User | null {
   if (typeof window === "undefined") return null;
 
-  const userString =
-    localStorage.getItem("bioconnect_user") ||
-    sessionStorage.getItem("bioconnect_user");
-
-  if (!userString) return null;
-
   try {
-    return JSON.parse(userString);
-  } catch {
+    const userStr =
+      localStorage.getItem("bioconnect_user") ||
+      sessionStorage.getItem("bioconnect_user");
+
+    if (!userStr) return null;
+
+    const user = JSON.parse(userStr);
+    return user as User;
+  } catch (error) {
+    console.error("Erro ao obter usuário:", error);
     return null;
   }
+}
+
+export function isAuthenticated(): boolean {
+  const token = getToken();
+  const user = getUser();
+
+  if (!token || !user) return false;
+
+  // Verificar se o token não expirou
+  return !isTokenExpired();
 }
 
 export function getAuthState(): AuthState {
@@ -99,13 +100,22 @@ export function getAuthState(): AuthState {
 export function logout(): void {
   if (typeof window === "undefined") return;
 
-  localStorage.removeItem("bioconnect_token");
-  localStorage.removeItem("bioconnect_user");
+  try {
+    localStorage.removeItem("bioconnect_token");
+    localStorage.removeItem("bioconnect_user");
+    sessionStorage.removeItem("bioconnect_token");
+    sessionStorage.removeItem("bioconnect_user");
 
-  sessionStorage.removeItem("bioconnect_token");
-  sessionStorage.removeItem("bioconnect_user");
+    // Limpar cookie
+    document.cookie =
+      "bioconnect_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 
-  window.location.href = "/login";
+    // Redirecionar para login
+    window.location.href = "/login";
+  } catch (error) {
+    console.error("Erro no logout:", error);
+    window.location.href = "/login";
+  }
 }
 
 export function isTokenExpired(): boolean {
@@ -116,8 +126,10 @@ export function isTokenExpired(): boolean {
     const payload = JSON.parse(atob(token.split(".")[1]));
     const currentTime = Math.floor(Date.now() / 1000);
 
-    return payload.exp < currentTime;
-  } catch {
+    // Adicionar margem de 5 minutos para evitar problemas de timing
+    return payload.exp < currentTime + 300;
+  } catch (error) {
+    console.error("Erro ao verificar expiração do token:", error);
     return true;
   }
 }
@@ -137,33 +149,46 @@ export function hasPermission(requiredRole: User["tipo"]): boolean {
   return userLevel >= requiredLevel;
 }
 
+// ===================================================================
+// FUNÇÃO DE REGISTRO
+// ===================================================================
+
 export async function registerUser(
   userData: RegisterData
 ): Promise<RegisterResponse> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-  const response = await fetch(`${apiUrl}/auth/register`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(userData),
-  });
+  try {
+    const response = await fetch(`${apiUrl}/auth/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(userData),
+    });
 
-  const responseData = await response.json().catch(() => ({}));
+    const responseData = await response.json().catch(() => ({}));
 
-  if (!response.ok) {
-    throw {
-      message:
-        responseData.message ||
-        `Erro ${response.status}: ${response.statusText}`,
-      errors: responseData.errors || {},
-      status: response.status,
-    };
+    if (!response.ok) {
+      throw {
+        message:
+          responseData.message ||
+          `Erro ${response.status}: ${response.statusText}`,
+        errors: responseData.errors || {},
+        status: response.status,
+      };
+    }
+
+    return responseData;
+  } catch (error) {
+    console.error("Erro no registro:", error);
+    throw error;
   }
-
-  return responseData;
 }
+
+// ===================================================================
+// FETCH AUTENTICADO
+// ===================================================================
 
 export async function authFetch(
   url: string,
@@ -217,21 +242,49 @@ export async function authFetch(
   }
 }
 
+// ===================================================================
+// HOOK useAuth
+// ===================================================================
+
 export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>(() => getAuthState());
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const handleStorageChange = () => {
-      setAuthState(getAuthState());
+    // Verificação inicial
+    const checkAuth = () => {
+      try {
+        const newAuthState = getAuthState();
+        setAuthState(newAuthState);
+      } catch (error) {
+        console.error("Erro na verificação de autenticação:", error);
+        setAuthState({
+          isAuthenticated: false,
+          user: null,
+          token: null,
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+
+    // Escutar mudanças no localStorage/sessionStorage
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key?.startsWith("bioconnect_")) {
+        checkAuth();
+      }
     };
 
     window.addEventListener("storage", handleStorageChange);
 
+    // Verificar token periodicamente
     const checkTokenInterval = setInterval(() => {
       if (isTokenExpired() && authState.isAuthenticated) {
         logout();
       }
-    }, 60000);
+    }, 60000); // Verificar a cada minuto
 
     return () => {
       window.removeEventListener("storage", handleStorageChange);
@@ -241,10 +294,16 @@ export function useAuth() {
 
   return {
     ...authState,
+    isLoading,
     logout,
     hasPermission,
+    refreshAuth: () => setAuthState(getAuthState()),
   };
 }
+
+// ===================================================================
+// INTERCEPTADORES DO AXIOS (OPCIONAL)
+// ===================================================================
 
 export function setupAxiosInterceptors(axiosInstance: any) {
   axiosInstance.interceptors.request.use(
@@ -269,7 +328,11 @@ export function setupAxiosInterceptors(axiosInstance: any) {
   );
 }
 
-export function requireAuth(redirectTo: string = "/auth/login") {
+// ===================================================================
+// UTILITÁRIOS DE AUTORIZAÇÃO
+// ===================================================================
+
+export function requireAuth(redirectTo: string = "/login") {
   if (typeof window !== "undefined" && !isAuthenticated()) {
     window.location.href = redirectTo;
     return false;
@@ -293,6 +356,10 @@ export function requirePermission(
   return true;
 }
 
+// ===================================================================
+// VALIDAÇÃO DE SENHA
+// ===================================================================
+
 export function validatePasswordStrength(password: string): {
   isValid: boolean;
   errors: string[];
@@ -303,38 +370,20 @@ export function validatePasswordStrength(password: string): {
     errors.push("Deve ter pelo menos 8 caracteres");
   }
 
-  if (!/[a-z]/.test(password)) {
-    errors.push("Deve conter pelo menos uma letra minúscula");
-  }
-
   if (!/[A-Z]/.test(password)) {
-    errors.push("Deve conter pelo menos uma letra maiúscula");
+    errors.push("Deve conter ao menos uma letra maiúscula");
   }
 
-  if (!/\d/.test(password)) {
-    errors.push("Deve conter pelo menos um número");
+  if (!/[a-z]/.test(password)) {
+    errors.push("Deve conter ao menos uma letra minúscula");
   }
 
-  return {
-    isValid: errors.length === 0,
-    errors,
-  };
-}
-
-export function validateLoginFormat(login: string): {
-  isValid: boolean;
-  errors: string[];
-} {
-  const errors: string[] = [];
-
-  if (login.length < 3) {
-    errors.push("Login deve ter pelo menos 3 caracteres");
+  if (!/[0-9]/.test(password)) {
+    errors.push("Deve conter ao menos um número");
   }
 
-  if (!/^[a-zA-Z0-9._-]+$/.test(login)) {
-    errors.push(
-      "Login deve conter apenas letras, números, pontos, hífens e underscores"
-    );
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    errors.push("Deve conter ao menos um caractere especial");
   }
 
   return {
@@ -343,12 +392,55 @@ export function validateLoginFormat(login: string): {
   };
 }
 
-export function mapRoleToTipo(role: string): User["tipo"] {
-  const roleMap: Record<string, User["tipo"]> = {
-    USER: "USER",
-    ADMIN: "ADMIN",
-    ADMINISTRADOR: "ADMIN",
-  };
+// ===================================================================
+// UTILITÁRIOS ADICIONAIS
+// ===================================================================
 
-  return roleMap[role] || "USER";
+export function getTokenPayload(): any | null {
+  const token = getToken();
+  if (!token) return null;
+
+  try {
+    return JSON.parse(atob(token.split(".")[1]));
+  } catch (error) {
+    console.error("Erro ao decodificar token:", error);
+    return null;
+  }
 }
+
+export function getTokenExpiration(): Date | null {
+  const payload = getTokenPayload();
+  if (!payload?.exp) return null;
+
+  return new Date(payload.exp * 1000);
+}
+
+export function isUserActive(): boolean {
+  const user = getUser();
+  return user?.ativo ?? false;
+}
+
+// ===================================================================
+// EXPORT DEFAULT OBJECT
+// ===================================================================
+
+const auth = {
+  getToken,
+  getUser,
+  isAuthenticated,
+  getAuthState,
+  logout,
+  isTokenExpired,
+  hasPermission,
+  registerUser,
+  authFetch,
+  useAuth,
+  requireAuth,
+  requirePermission,
+  validatePasswordStrength,
+  getTokenPayload,
+  getTokenExpiration,
+  isUserActive,
+};
+
+export default auth;
