@@ -64,36 +64,53 @@ function isValidToken(token: string): boolean {
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
     const currentTime = Math.floor(Date.now() / 1000);
-
-    const isValid = payload.exp && payload.exp > currentTime;
-
-    if (process.env.NODE_ENV === "development") {
-      console.log(`[Middleware] Token validation:`, {
-        exp: payload.exp,
-        now: currentTime,
-        isValid,
-        timeLeft: payload.exp - currentTime + " segundos",
-      });
-    }
-
-    return isValid;
+    return payload.exp && payload.exp > currentTime;
   } catch (error) {
-    if (process.env.NODE_ENV === "development") {
-      console.log(`[Middleware] Token validation error:`, error);
-    }
     return false;
   }
 }
 
 function getUserFromToken(
   token: string
-): { role: UserRole; tipo: UserRole } | null {
+): { role: UserRole; tipo: UserRole; login?: string } | null {
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
-    const role = payload.role || payload.tipo || "USER";
+
+    const login = payload.sub || payload.login || payload.username;
+
+    let role: UserRole = "USER";
+
+    if (login && login.toLowerCase() === "master") {
+      role = "ADMIN";
+    } else {
+      const roleFromToken = payload.role || payload.tipo || payload.authority;
+      if (roleFromToken) {
+        const normalizedRole = roleFromToken.toString().toUpperCase();
+        if (
+          ["ADMIN", "ADMINISTRATOR", "ADMINISTRADOR", "ROOT"].includes(
+            normalizedRole
+          )
+        ) {
+          role = "ADMIN";
+        }
+      }
+
+      if (payload.authorities && Array.isArray(payload.authorities)) {
+        const hasAdminAuth = payload.authorities.some(
+          (auth: string) =>
+            auth.toUpperCase().includes("ADMIN") ||
+            auth.toUpperCase().includes("ROLE_ADMIN")
+        );
+        if (hasAdminAuth) {
+          role = "ADMIN";
+        }
+      }
+    }
+
     return {
       role: role,
       tipo: role,
+      login: login,
     };
   } catch {
     return null;
@@ -158,15 +175,6 @@ export function middleware(request: NextRequest) {
   const token = getAuthToken(request);
   const isAuthenticated = token ? isValidToken(token) : false;
 
-  if (process.env.NODE_ENV === "development") {
-    console.log(`[Middleware] Authentication check:`, {
-      pathname,
-      hasToken: !!token,
-      tokenPreview: token ? token.substring(0, 20) + "..." : null,
-      isAuthenticated,
-    });
-  }
-
   if (token && !isAuthenticated) {
     const response = NextResponse.next();
     response.cookies.delete("bioconnect_token");
@@ -192,13 +200,9 @@ export function middleware(request: NextRequest) {
         callbackUrl.startsWith("/") &&
         callbackUrl !== "/login"
       ) {
-        console.log(
-          `[Middleware] Redirecionando usuário logado para callback: ${callbackUrl}`
-        );
         return createRedirectResponse(request, callbackUrl, false);
       }
 
-      console.log(`[Middleware] Redirecionando usuário logado para dashboard`);
       return createRedirectResponse(request, "/dashboard", false);
     }
     return NextResponse.next();
@@ -235,30 +239,12 @@ export function middleware(request: NextRequest) {
   }
 
   if (pathname === "/") {
-    if (isAuthenticated) {
-      return createRedirectResponse(request, "/dashboard", false);
-    }
-    return NextResponse.next();
+    return createRedirectResponse(request, "/login", false);
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  /*
-   * Configura em quais rotas o middleware deve ser executado
-   * - Exclui arquivos estáticos (_next/static)
-   * - Exclui imagens e outros assets
-   * - Exclui rotas de API internas do Next.js
-   */
-  matcher: [
-    /*
-     * Aplica o middleware em todas as rotas exceto:
-     * - API routes (/api/*)
-     * - Static files (_next/static/*)
-     * - Image optimization (_next/image/*)
-     * - Favicon e outros arquivos estáticos
-     */
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\..*$).*)",
-  ],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\..*$).*)"],
 };

@@ -189,24 +189,22 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">
-            Bem-vindo, {user?.nome}! Aqui está um resumo das suas atividades.
+            Aqui está um resumo das suas atividades.
           </p>
         </div>
         <div className="flex space-x-3">
           <Link href="/projetos/new">
-            <Button>
+            <Button variant={"outline"}>
               <Plus className="mr-2 h-4 w-4" />
               Novo Projeto
             </Button>
           </Link>
-          {hasPermission("ADMIN") && (
-            <Link href="/eventos/new">
-              <Button variant="outline">
-                <Plus className="mr-2 h-4 w-4" />
-                Novo Evento
-              </Button>
-            </Link>
-          )}
+          <Link href="/eventos/new">
+            <Button variant="outline">
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Evento
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -614,10 +612,10 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle className="flex items-center text-lg">
                 <FileText className="mr-2 h-5 w-5 text-violet-500" />
-                Gerenciar Projetos
+                Projetos
               </CardTitle>
-              <CardDescription>
-                Visualize e gerencie todos os seus projetos
+              <CardDescription className="my-3">
+                Visualize todos os seus projetos
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -636,10 +634,10 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle className="flex items-center text-lg">
                 <Calendar className="mr-2 h-5 w-5 text-pink-700" />
-                Gerenciar Eventos
+                Eventos
               </CardTitle>
-              <CardDescription>
-                Organize e acompanhe eventos acadêmicos
+              <CardDescription className="my-3">
+                Acompanhe eventos acadêmicos
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -658,9 +656,9 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle className="flex items-center text-lg">
                 <BookOpen className="mr-2 h-5 w-5 text-orange-500" />
-                Gerenciar Monitorias
+                Monitorias
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="my-3">
                 Administre oportunidades de monitoria
               </CardDescription>
             </CardHeader>

@@ -82,22 +82,26 @@ export default function EventosPage() {
   const filteredEventos = eventos.filter((evento) => {
     const matchesSearch =
       evento.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      evento.curso.toLowerCase().includes(searchTerm.toLowerCase()) ||
       evento.local.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesCurso =
-      cursoFilter === "todos" || evento.curso.includes(cursoFilter);
+      cursoFilter === "todos" || evento.curso === cursoFilter;
 
-    const today = new Date();
     let matchesPeriodo = true;
+    if (periodoFilter !== "todos") {
+      const today = new Date();
+      const dataInicio = new Date(evento.dataInicio);
+      const dataTermino = new Date(evento.dataTermino);
 
-    if (periodoFilter === "proximos") {
-      matchesPeriodo = isAfter(new Date(evento.dataInicio), today);
-    } else if (periodoFilter === "em_andamento") {
-      matchesPeriodo =
-        isBefore(new Date(evento.dataInicio), today) &&
-        isAfter(new Date(evento.dataTermino), today);
-    } else if (periodoFilter === "concluidos") {
-      matchesPeriodo = isBefore(new Date(evento.dataTermino), today);
+      if (periodoFilter === "proximos") {
+        matchesPeriodo = isAfter(dataInicio, today);
+      } else if (periodoFilter === "em_andamento") {
+        matchesPeriodo =
+          isBefore(dataInicio, today) && isAfter(dataTermino, today);
+      } else if (periodoFilter === "concluidos") {
+        matchesPeriodo = isBefore(dataTermino, today);
+      }
     }
 
     return matchesSearch && matchesCurso && matchesPeriodo;
@@ -109,25 +113,33 @@ export default function EventosPage() {
     const termino = new Date(dataTermino);
 
     if (isAfter(inicio, today)) {
-      return { label: "Próximo", variant: "secondary" as const };
+      return { label: "Próximo", variant: "default" as const };
     } else if (isBefore(inicio, today) && isAfter(termino, today)) {
       return { label: "Em Andamento", variant: "default" as const };
-    } else if (isBefore(termino, today)) {
-      return { label: "Concluído", variant: "outline" as const };
+    } else {
+      return { label: "Concluído", variant: "secondary" as const };
     }
-    return { label: "Indefinido", variant: "secondary" as const };
   };
 
   const handleDeleteEvento = async (id: number, titulo: string) => {
     try {
       await deleteEvento(id);
-      toast.success(`Evento "${titulo}" deletado com sucesso!`);
+      toast.success(`Evento "${titulo}" removido com sucesso!`);
     } catch (error) {
-      toast.error("Erro ao deletar evento");
+      toast.error("Erro ao remover evento");
     }
   };
 
-  const cursosDisponiveis = [...new Set(eventos.map((e) => e.curso))];
+  const cursosDisponiveis = [
+    "Análise e Desenvolvimento de Sistemas",
+    "Engenharia de Software",
+    "Biotecnologia",
+    "Enfermagem",
+    "Engenharia Biomédica",
+    "Ciências Biológicas",
+    "Administração",
+    "Todos os Cursos",
+  ];
 
   if (loading) {
     return (
@@ -171,7 +183,6 @@ export default function EventosPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold">Eventos</h1>
@@ -179,17 +190,14 @@ export default function EventosPage() {
             Gerencie eventos acadêmicos e institucionais
           </p>
         </div>
-        {hasPermission("ADMIN") && (
-          <Link href="/eventos/new">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Evento
-            </Button>
-          </Link>
-        )}
+        <Link href="/eventos/new">
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Evento
+          </Button>
+        </Link>
       </div>
 
-      {/* Cards de estatísticas */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -225,25 +233,26 @@ export default function EventosPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Orçamento Total
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              R${" "}
-              {eventos
-                .reduce((acc, e) => acc + (e.vlTotalSolicitado || 0), 0)
-                .toLocaleString()}
-            </div>
-          </CardContent>
-        </Card>
+        {user?.tipo === "ADMIN" && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Orçamento Total
+              </CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                R${" "}
+                {eventos
+                  .reduce((acc, e) => acc + (e.vlTotalSolicitado || 0), 0)
+                  .toLocaleString()}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
-      {/* Filtros */}
       <Card>
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
@@ -291,7 +300,6 @@ export default function EventosPage() {
         </CardContent>
       </Card>
 
-      {/* Tabela de eventos */}
       <Card>
         <CardHeader>
           <CardTitle>Lista de Eventos</CardTitle>
@@ -333,7 +341,7 @@ export default function EventosPage() {
                     <TableHead>Data Término</TableHead>
                     <TableHead>Local</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Orçamento</TableHead>
+                    {user?.tipo === "ADMIN" && <TableHead>Orçamento</TableHead>}
                     <TableHead>Participantes</TableHead>
                     <TableHead className="w-[100px]">Ações</TableHead>
                   </TableRow>
@@ -376,19 +384,22 @@ export default function EventosPage() {
                         <TableCell>
                           <Badge variant={status.variant}>{status.label}</Badge>
                         </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            <div>
-                              Sol: R${" "}
-                              {evento.vlTotalSolicitado?.toLocaleString() ||
-                                "0"}
+                        {user?.tipo === "ADMIN" && (
+                          <TableCell>
+                            <div className="text-sm">
+                              <div className="font-medium">
+                                Sol: R${" "}
+                                {evento.vlTotalSolicitado?.toLocaleString() ||
+                                  "0"}
+                              </div>
+                              <div className="text-muted-foreground">
+                                Apr: R${" "}
+                                {evento.vlTotalAprovado?.toLocaleString() ||
+                                  "0"}
+                              </div>
                             </div>
-                            <div className="text-muted-foreground">
-                              Apr: R${" "}
-                              {evento.vlTotalAprovado?.toLocaleString() || "0"}
-                            </div>
-                          </div>
-                        </TableCell>
+                          </TableCell>
+                        )}
                         <TableCell>
                           <div className="flex items-center">
                             <Users className="h-4 w-4 text-muted-foreground mr-1" />
@@ -426,22 +437,22 @@ export default function EventosPage() {
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                       <DropdownMenuItem
-                                        className="text-destructive"
                                         onSelect={(e) => e.preventDefault()}
                                       >
                                         <Trash2 className="mr-2 h-4 w-4" />
-                                        Deletar
+                                        Excluir
                                       </DropdownMenuItem>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                       <AlertDialogHeader>
                                         <AlertDialogTitle>
-                                          Confirmar Exclusão
+                                          Confirmar exclusão
                                         </AlertDialogTitle>
                                         <AlertDialogDescription>
-                                          Tem certeza que deseja deletar o
-                                          evento "{evento.titulo}"? Esta ação
-                                          não pode ser desfeita.
+                                          Tem certeza que deseja excluir o
+                                          evento{" "}
+                                          <strong>"{evento.titulo}"</strong>?
+                                          Esta ação não pode ser desfeita.
                                         </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter>
@@ -455,9 +466,8 @@ export default function EventosPage() {
                                               evento.titulo
                                             )
                                           }
-                                          className="bg-destructive hover:bg-destructive/90"
                                         >
-                                          Deletar
+                                          Excluir
                                         </AlertDialogAction>
                                       </AlertDialogFooter>
                                     </AlertDialogContent>

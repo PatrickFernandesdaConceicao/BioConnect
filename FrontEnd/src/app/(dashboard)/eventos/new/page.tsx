@@ -82,26 +82,6 @@ export default function NewEventoPage() {
   const [nomeParticipante, setNomeParticipante] = useState("");
   const [emailParticipante, setEmailParticipante] = useState("");
 
-  if (!hasPermission("ADMIN")) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <Shield className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Acesso Restrito</h3>
-          <p className="text-muted-foreground mb-4">
-            Apenas administradores podem criar eventos.
-          </p>
-          <Link href="/eventos">
-            <Button>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Voltar para Eventos
-            </Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   const form = useForm<EventoFormValues>({
     resolver: zodResolver(eventoSchema),
     defaultValues: {
@@ -175,17 +155,6 @@ export default function NewEventoPage() {
         <div>
           <h1 className="text-3xl font-bold">Novo Evento</h1>
           <p className="text-muted-foreground">Crie um novo evento acadêmico</p>
-        </div>
-      </div>
-
-      {/* Aviso Admin */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-center">
-          <Shield className="h-4 w-4 text-blue-600 mr-2" />
-          <p className="text-blue-800 text-sm">
-            <strong>Área Administrativa:</strong> Apenas administradores podem
-            criar e gerenciar eventos.
-          </p>
         </div>
       </div>
 

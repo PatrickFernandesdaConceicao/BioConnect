@@ -41,11 +41,7 @@ export default function DashboardLayout({
       <div className="h-full relative">
         {/* Sidebar para desktop */}
         <div className="hidden h-full md:flex md:w-72 md:flex-col md:fixed md:inset-y-0 z-80">
-          <Sidebar
-            userRole={user?.tipo || "USER"}
-            userName={user?.nome || "Usuário"}
-            userImage=""
-          />
+          <Sidebar />
         </div>
 
         {/* Mobile sidebar */}
@@ -60,11 +56,7 @@ export default function DashboardLayout({
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-72">
-            <Sidebar
-              userRole={user?.tipo || "USER"}
-              userName={user?.nome || "Usuário"}
-              userImage=""
-            />
+            <Sidebar />
           </SheetContent>
         </Sheet>
 
@@ -74,9 +66,6 @@ export default function DashboardLayout({
           <div className="flex items-center p-4 border-b h-16 justify-between bg-background">
             <h1 className="font-semibold text-xl md:ml-2">BioConnect</h1>
             <div className="flex items-center gap-x-4">
-              <Button size="icon" variant="ghost">
-                <BellIcon className="h-5 w-5" />
-              </Button>
               <ModeToggle />
             </div>
           </div>

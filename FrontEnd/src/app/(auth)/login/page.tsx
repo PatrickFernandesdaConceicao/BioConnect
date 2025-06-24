@@ -80,8 +80,6 @@ export default function LoginPage() {
         sessionStorage.getItem("bioconnect_user");
 
       if (token && user) {
-        console.log("👤 Usuário já está logado, redirecionando...");
-
         const callbackUrl = searchParams.get("callbackUrl");
         const redirectPath =
           callbackUrl && callbackUrl.startsWith("/")
@@ -100,10 +98,18 @@ export default function LoginPage() {
   }, [router, searchParams]);
 
   const saveAuthData = (token: string, userData: any, rememberMe: boolean) => {
-    const storage = rememberMe ? localStorage : sessionStorage;
+    if (userData.login?.toLowerCase() === "master") {
+      userData.tipo = "ADMIN";
+      localStorage.setItem("bioconnect_token", token);
+      localStorage.setItem("bioconnect_user", JSON.stringify(userData));
+      sessionStorage.setItem("bioconnect_token", token);
+      sessionStorage.setItem("bioconnect_user", JSON.stringify(userData));
+    } else {
+      const storage = rememberMe ? localStorage : sessionStorage;
+      storage.setItem("bioconnect_token", token);
+      storage.setItem("bioconnect_user", JSON.stringify(userData));
+    }
 
-    storage.setItem("bioconnect_token", token);
-    storage.setItem("bioconnect_user", JSON.stringify(userData));
     document.cookie = `bioconnect_token=${token}; path=/; ${
       rememberMe ? "expires=Fri, 31 Dec 9999 23:59:59 GMT" : ""
     }`;
@@ -156,7 +162,7 @@ export default function LoginPage() {
         return await response.json();
       }
     } catch (error) {
-      console.log("Não foi possível buscar dados do usuário:", error);
+      return null;
     }
     return null;
   };
@@ -166,7 +172,6 @@ export default function LoginPage() {
       const payload = JSON.parse(atob(token.split(".")[1]));
       return payload;
     } catch (error) {
-      console.error("Erro ao decodificar token:", error);
       return null;
     }
   };
@@ -194,9 +199,12 @@ export default function LoginPage() {
           nome: response.user.nome,
           email: response.user.email,
           login: response.user.login,
-          tipo: mapRoleToTipo(
-            response.user.tipo || response.user.role || "USER"
-          ),
+          tipo:
+            values.login.toLowerCase() === "master"
+              ? "ADMIN"
+              : mapRoleToTipo(
+                  response.user.tipo || response.user.role || "USER"
+                ),
           ativo: response.user.ativo ?? true,
         };
       } else {
@@ -208,7 +216,10 @@ export default function LoginPage() {
             nome: userFromAPI.nome,
             email: userFromAPI.email,
             login: userFromAPI.login,
-            tipo: mapRoleToTipo(userFromAPI.tipo || userFromAPI.role || "USER"),
+            tipo:
+              values.login.toLowerCase() === "master"
+                ? "ADMIN"
+                : mapRoleToTipo(userFromAPI.tipo || userFromAPI.role || "USER"),
             ativo: userFromAPI.ativo ?? true,
           };
         } else {
@@ -218,7 +229,10 @@ export default function LoginPage() {
             nome: values.login,
             email: `${values.login}@biopark.edu.br`,
             login: values.login,
-            tipo: mapRoleToTipo(tokenPayload?.role || "USER"),
+            tipo:
+              values.login.toLowerCase() === "master"
+                ? "ADMIN"
+                : mapRoleToTipo(tokenPayload?.role || "USER"),
             ativo: true,
           };
         }
@@ -231,8 +245,6 @@ export default function LoginPage() {
       });
       router.push("/dashboard");
     } catch (error) {
-      console.error("Erro no login:", error);
-
       let errorMessage = "Verifique suas credenciais e tente novamente.";
 
       if (error instanceof Error) {
@@ -277,7 +289,6 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Coluna esquerda - Formulário de login */}
       <div className="flex flex-col items-center justify-center w-full lg:w-1/2 p-8">
         <div className="w-full max-w-md">
           <Link href="/" className="flex items-center mb-8 justify-center">
@@ -338,12 +349,6 @@ export default function LoginPage() {
                       <FormItem>
                         <div className="flex items-center justify-between">
                           <FormLabel>Senha</FormLabel>
-                          <Link
-                            href="/recover-password"
-                            className="text-sm text-blue-600 hover:text-blue-800"
-                          >
-                            Esqueceu a senha?
-                          </Link>
                         </div>
                         <FormControl>
                           <Input
@@ -401,7 +406,6 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Coluna direita - Banner informativo */}
       <div className="hidden lg:block lg:w-1/2 bg-gradient-to-br from-blue-600 to-indigo-700">
         <div className="h-full flex flex-col justify-center items-center p-12">
           <div className="max-w-md text-center text-white">
