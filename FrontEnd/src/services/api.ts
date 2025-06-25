@@ -25,7 +25,6 @@ export interface ProjetoData {
   metodologia: string;
   resultadosEsperados: string;
   palavrasChave: string;
-  emailsParticipantes: string[];
 }
 
 export interface Projeto extends ProjetoData {
@@ -211,15 +210,38 @@ class MonitoriaService {
 
 class EventoService {
   async list(): Promise<Evento[]> {
-    const response = await authFetch(`${API_URL}/api/evento`);
-    if (!response.ok) throw new Error("Erro ao buscar eventos");
-    return response.json();
+    try {
+      console.log("Buscando eventos em:", `${API_URL}/api/evento`);
+
+      const response = await authFetch(`${API_URL}/api/evento`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Erro na resposta:", response.status, errorText);
+        throw new Error(
+          `Erro ao buscar eventos: ${response.status} - ${errorText}`
+        );
+      }
+
+      const data = await response.json();
+      console.log("Eventos recebidos:", data);
+
+      return data;
+    } catch (error) {
+      console.error("Erro detalhado ao buscar eventos:", error);
+      throw error;
+    }
   }
 
   async getById(id: number): Promise<Evento> {
-    const response = await authFetch(`${API_URL}/api/evento/${id}`);
-    if (!response.ok) throw new Error("Evento não encontrado");
-    return response.json();
+    try {
+      const response = await authFetch(`${API_URL}/api/evento/${id}`);
+      if (!response.ok) throw new Error("Evento não encontrado");
+      return response.json();
+    } catch (error) {
+      console.error(`Erro ao buscar evento ${id}:`, error);
+      throw error;
+    }
   }
 
   async create(data: EventoData): Promise<Evento> {
@@ -250,19 +272,19 @@ class EventoService {
 
 class UsuarioService {
   async list(): Promise<Usuario[]> {
-    const response = await authFetch(`${API_URL}/api/usuarios`);
+    const response = await authFetch(`${API_URL}/usuarios`);
     if (!response.ok) throw new Error("Erro ao buscar usuários");
     return response.json();
   }
 
   async getById(id: string): Promise<Usuario> {
-    const response = await authFetch(`${API_URL}/api/usuarios/${id}`);
+    const response = await authFetch(`${API_URL}/usuarios/${id}`);
     if (!response.ok) throw new Error("Usuário não encontrado");
     return response.json();
   }
 
   async update(id: string, data: Partial<Usuario>): Promise<Usuario> {
-    const response = await authFetch(`${API_URL}/api/usuarios/${id}`, {
+    const response = await authFetch(`${API_URL}/usuarios/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
@@ -271,7 +293,7 @@ class UsuarioService {
   }
 
   async delete(id: string): Promise<void> {
-    const response = await authFetch(`${API_URL}/api/usuarios/${id}`, {
+    const response = await authFetch(`${API_URL}/usuarios/${id}`, {
       method: "DELETE",
     });
     if (!response.ok) throw new Error("Erro ao deletar usuário");

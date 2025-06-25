@@ -52,4 +52,15 @@ public class ProjetoController {
         return ResponseEntity.ok(projeto);
     }
 
+    @PatchMapping("/{id}/aprovar")
+    public ResponseEntity<ProjetoDTO> aprovarProjeto(@PathVariable Long id) {
+        ProjetoDTO projetoDTO = projetoService.aprovarProjeto(id);
+        return ResponseEntity.ok(projetoDTO);
+    }
+
+    @PatchMapping("/{id}/rejeitar")
+    public ResponseEntity<ProjetoDTO> rejeitarProjeto(@PathVariable Long id) {
+        ProjetoDTO projetoDTO = projetoService.rejeitarProjeto(id);
+        return ResponseEntity.ok(projetoDTO);
+    }
 }

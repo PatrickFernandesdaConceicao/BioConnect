@@ -30,6 +30,10 @@ public class Projeto {
     @Column(columnDefinition = "TEXT")
     private String justificativa;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private StatusProjeto status = StatusProjeto.PENDENTE;
+
     private LocalDate dataInicio;
     private LocalDate dataTermino;
 
