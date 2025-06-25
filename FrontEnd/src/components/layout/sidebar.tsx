@@ -296,7 +296,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
           {isAdmin ? (
             <Badge variant="destructive" className="text-xs">
               <Shield className="w-3 h-3 mr-1" />
-              Admin
+              Coordenador
             </Badge>
           ) : (
             <Badge variant="outline" className="text-xs">

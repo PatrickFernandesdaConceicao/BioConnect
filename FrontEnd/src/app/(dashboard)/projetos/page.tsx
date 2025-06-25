@@ -319,7 +319,7 @@ export default function ProjetosPage() {
                     <TableHead>Status</TableHead>
                     <TableHead>Data Início</TableHead>
                     <TableHead>Orçamento</TableHead>
-                    <TableHead>Responsável</TableHead>
+                    <TableHead>Participantes</TableHead>
                     <TableHead className="w-[100px]">Ações</TableHead>
                   </TableRow>
                 </TableHeader>

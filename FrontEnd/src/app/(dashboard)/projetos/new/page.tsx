@@ -172,7 +172,7 @@ export default function NewProjetoPage() {
         ...values,
         orcamento: values.possuiOrcamento ? values.orcamento : 0,
         urlEdital: values.urlEdital || "",
-        emailsParticipantes: participantes,
+        // emailsParticipantes: participantes,
       };
 
       await createProjeto(projetoData);

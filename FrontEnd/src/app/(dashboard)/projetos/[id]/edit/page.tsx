@@ -124,7 +124,7 @@ export default function EditProjetoPage() {
 
   const projetoId = params.id as string;
 
-  const form = useForm({
+  const form = useForm<ProjetoFormValues>({
     resolver: zodResolver(projetoSchema),
     defaultValues: {
       titulo: "",

@@ -141,10 +141,6 @@ export default function LoginPageContent({ callbackUrl, router }: Props) {
         }
       );
 
-      if (!response.ok) {
-        throw new Error("Erro ao autenticar");
-      }
-
       const data = await response.json();
 
       if (!data.token) {

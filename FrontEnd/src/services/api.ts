@@ -25,7 +25,6 @@ export interface ProjetoData {
   metodologia: string;
   resultadosEsperados: string;
   palavrasChave: string;
-  emailsParticipantes: string[];
 }
 
 export interface Projeto extends ProjetoData {
