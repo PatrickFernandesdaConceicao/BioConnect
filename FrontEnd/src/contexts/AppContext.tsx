@@ -1,13 +1,17 @@
 "use client";
 
-import React, { createContext, useContext, useReducer, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useReducer,
+  useCallback,
+  useMemo,
+  ReactNode,
+} from "react";
 import { authFetch } from "@/lib/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-// ===================================================================
-// INTERFACES
-// ===================================================================
 export interface ProjetoData {
   titulo: string;
   descricao: string;
@@ -15,7 +19,7 @@ export interface ProjetoData {
   justificativa: string;
   dataInicio: string;
   dataTermino: string;
-  areaConhecimento: string;
+  areaConhecimento: ReactNode;
   possuiOrcamento: boolean;
   orcamento: number;
   urlEdital: string;
@@ -30,14 +34,10 @@ export interface ProjetoData {
 }
 
 export interface Projeto extends ProjetoData {
+  areaConhecimento: ReactNode;
   id: number;
   status?: string;
   dataCriacao?: string;
-  usuario?: {
-    id: string;
-    nome: string;
-    email: string;
-  };
 }
 
 export interface MonitoriaData {
@@ -61,10 +61,10 @@ export interface MonitoriaData {
 
 export interface Monitoria extends MonitoriaData {
   id: number;
-  disciplinaNome?: string;
-  cursoNome?: string;
   status?: string;
   dataCriacao?: string;
+  disciplinaNome?: string;
+  cursoNome?: string;
 }
 
 export interface EventoData {
@@ -109,9 +109,7 @@ export interface Curso {
   tipo: string;
 }
 
-// ===================================================================
-// STATE E ACTIONS
-// ===================================================================
+// Estado e ações (mantendo as mesmas)
 interface AppState {
   projetos: Projeto[];
   monitorias: Monitoria[];
@@ -201,22 +199,22 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
 
     case "SET_PROJETOS":
-      return { ...state, projetos: action.payload };
+      return { ...state, projetos: action.payload || [] };
 
     case "SET_MONITORIAS":
-      return { ...state, monitorias: action.payload };
+      return { ...state, monitorias: action.payload || [] };
 
     case "SET_EVENTOS":
-      return { ...state, eventos: action.payload };
+      return { ...state, eventos: action.payload || [] };
 
     case "SET_USUARIOS":
-      return { ...state, usuarios: action.payload };
+      return { ...state, usuarios: action.payload || [] };
 
     case "SET_DISCIPLINAS":
-      return { ...state, disciplinas: action.payload };
+      return { ...state, disciplinas: action.payload || [] };
 
     case "SET_CURSOS":
-      return { ...state, cursos: action.payload };
+      return { ...state, cursos: action.payload || [] };
 
     case "ADD_PROJETO":
       return { ...state, projetos: [...state.projetos, action.payload] };
@@ -274,9 +272,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
   }
 }
 
-// ===================================================================
-// CONTEXT
-// ===================================================================
+// Interface do contexto
 interface AppContextType extends AppState {
   fetchProjetos: () => Promise<void>;
   createProjeto: (data: ProjetoData) => Promise<void>;
@@ -303,485 +299,569 @@ interface AppContextType extends AppState {
   fetchCursos: () => Promise<void>;
 }
 
-const AppContext = createContext<AppContextType | undefined>(undefined);
+const defaultContextValue: AppContextType = {
+  ...initialState,
+  fetchProjetos: async () => {},
+  createProjeto: async () => {},
+  updateProjeto: async () => {},
+  deleteProjeto: async () => {},
+  fetchMonitorias: async () => {},
+  createMonitoria: async () => {},
+  updateMonitoria: async () => {},
+  deleteMonitoria: async () => {},
+  fetchEventos: async () => {},
+  createEvento: async () => {},
+  updateEvento: async () => {},
+  deleteEvento: async () => {},
+  fetchUsuarios: async () => {},
+  updateUsuario: async () => {},
+  deleteUsuario: async () => {},
+  toggleUsuarioStatus: async () => {},
+  fetchMasterData: async () => {},
+  fetchDisciplinas: async () => {},
+  fetchCursos: async () => {},
+};
 
-// ===================================================================
-// PROVIDER
-// ===================================================================
+const AppContext = createContext<AppContextType>(defaultContextValue);
+
+// Provider Component
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
-  // Helper para operações async
-  const handleAsync = async <T,>(
-    action: () => Promise<T>,
-    loadingKey: keyof AppState["loading"],
-    errorKey: keyof AppState["error"]
-  ): Promise<T | void> => {
-    try {
+  // Helper function para handle de async com loading/error
+  const handleAsync = useCallback(
+    async (
+      asyncFn: () => Promise<void>,
+      loadingKey: keyof AppState["loading"],
+      errorKey: keyof AppState["error"]
+    ) => {
       dispatch({
         type: "SET_LOADING",
         payload: { key: loadingKey, value: true },
       });
       dispatch({ type: "SET_ERROR", payload: { key: errorKey, value: null } });
-      return await action();
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Erro desconhecido";
-      dispatch({
-        type: "SET_ERROR",
-        payload: { key: errorKey, value: message },
-      });
-      throw error;
-    } finally {
-      dispatch({
-        type: "SET_LOADING",
-        payload: { key: loadingKey, value: false },
-      });
-    }
-  };
 
-  // ===================================================================
-  // PROJETOS
-  // ===================================================================
-  const fetchProjetos = async () => {
+      try {
+        await asyncFn();
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Erro desconhecido";
+        dispatch({
+          type: "SET_ERROR",
+          payload: { key: errorKey, value: errorMessage },
+        });
+        throw error;
+      } finally {
+        dispatch({
+          type: "SET_LOADING",
+          payload: { key: loadingKey, value: false },
+        });
+      }
+    },
+    []
+  );
+
+  // CORREÇÃO PRINCIPAL: Memoizar todas as funções com useCallback
+  const fetchProjetos = useCallback(async () => {
     await handleAsync(
       async () => {
         const response = await authFetch(`${API_URL}/api/projetos`);
         if (!response.ok) throw new Error("Erro ao buscar projetos");
         const projetos = await response.json();
-        dispatch({ type: "SET_PROJETOS", payload: projetos });
+        dispatch({
+          type: "SET_PROJETOS",
+          payload: Array.isArray(projetos) ? projetos : [],
+        });
       },
       "projetos",
       "projetos"
     );
-  };
+  }, [handleAsync]);
 
   const createProjeto = async (data: ProjetoData) => {
     await handleAsync(
       async () => {
+        console.log("🚀 [createProjeto] Dados:", data);
+
+        // Validar dados essenciais
+        if (!data.titulo || !data.descricao) {
+          throw new Error("Título e descrição são obrigatórios");
+        }
+
         const response = await authFetch(`${API_URL}/api/projetos`, {
           method: "POST",
-          body: JSON.stringify(data),
+          body: JSON.stringify({
+            ...data,
+            orcamento: Number(data.orcamento) || 0,
+            limiteParticipantes: Number(data.limiteParticipantes) || 1,
+            emailsParticipantes: data.emailsParticipantes || [],
+          }),
         });
-        if (!response.ok) throw new Error("Erro ao criar projeto");
+
+        console.log("📨 Response status:", response.status);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("❌ Error details:", errorText);
+
+          // Mensagens específicas por status
+          switch (response.status) {
+            case 400:
+              throw new Error(`Dados inválidos: ${errorText}`);
+            case 401:
+              throw new Error("Sessão expirada. Faça login novamente.");
+            case 403:
+              throw new Error("Sem permissão para criar projetos.");
+            case 404:
+              throw new Error("Serviço não encontrado. Verifique o backend.");
+            case 422:
+              throw new Error(`Erro de validação: ${errorText}`);
+            default:
+              throw new Error(`Erro ${response.status}: ${errorText}`);
+          }
+        }
+
         const projeto = await response.json();
+        console.log("✅ Projeto criado:", projeto);
+
         dispatch({ type: "ADD_PROJETO", payload: projeto });
+        return projeto;
       },
       "projetos",
       "projetos"
     );
   };
 
-  const updateProjeto = async (id: number, data: Partial<ProjetoData>) => {
+  const updateProjeto = useCallback(
+    async (id: number, data: Partial<ProjetoData>) => {
+      await handleAsync(
+        async () => {
+          const response = await authFetch(`${API_URL}/api/projetos/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify(data),
+          });
+          if (!response.ok) throw new Error("Erro ao atualizar projeto");
+          const projeto = await response.json();
+          dispatch({ type: "UPDATE_PROJETO", payload: projeto });
+        },
+        "projetos",
+        "projetos"
+      );
+    },
+    [handleAsync]
+  );
+
+  const deleteProjeto = useCallback(
+    async (id: number) => {
+      await handleAsync(
+        async () => {
+          const response = await authFetch(`${API_URL}/api/projetos/${id}`, {
+            method: "DELETE",
+          });
+          if (!response.ok) throw new Error("Erro ao deletar projeto");
+          dispatch({ type: "DELETE_PROJETO", payload: id });
+        },
+        "projetos",
+        "projetos"
+      );
+    },
+    [handleAsync]
+  );
+
+  // EVENTOS - COM useCallback
+  const fetchEventos = useCallback(async () => {
     await handleAsync(
       async () => {
-        const response = await authFetch(`${API_URL}/api/projetos/${id}`, {
-          method: "PATCH",
-          body: JSON.stringify(data),
+        console.log("Buscando eventos...");
+        const response = await authFetch(`${API_URL}/api/evento`);
+        if (!response.ok) {
+          throw new Error(`Erro ao buscar eventos: ${response.status}`);
+        }
+        const eventos = await response.json();
+        console.log("Eventos recebidos:", eventos);
+        dispatch({
+          type: "SET_EVENTOS",
+          payload: Array.isArray(eventos) ? eventos : [],
         });
-        if (!response.ok) throw new Error("Erro ao atualizar projeto");
-        const projeto = await response.json();
-        dispatch({ type: "UPDATE_PROJETO", payload: projeto });
       },
-      "projetos",
-      "projetos"
+      "eventos",
+      "eventos"
     );
-  };
+  }, [handleAsync]);
 
-  const deleteProjeto = async (id: number) => {
-    await handleAsync(
-      async () => {
-        const response = await authFetch(`${API_URL}/api/projetos/${id}`, {
-          method: "DELETE",
-        });
-        if (!response.ok) throw new Error("Erro ao deletar projeto");
-        dispatch({ type: "DELETE_PROJETO", payload: id });
-      },
-      "projetos",
-      "projetos"
-    );
-  };
+  const createEvento = useCallback(
+    async (data: EventoData) => {
+      await handleAsync(
+        async () => {
+          const response = await authFetch(`${API_URL}/api/evento`, {
+            method: "POST",
+            body: JSON.stringify(data),
+          });
+          if (!response.ok) throw new Error("Erro ao criar evento");
+          const evento = await response.json();
+          dispatch({ type: "ADD_EVENTO", payload: evento });
+        },
+        "eventos",
+        "eventos"
+      );
+    },
+    [handleAsync]
+  );
 
-  // ===================================================================
-  // MONITORIAS
-  // ===================================================================
-  const fetchMonitorias = async () => {
+  const updateEvento = useCallback(
+    async (id: number, data: Partial<EventoData>) => {
+      await handleAsync(
+        async () => {
+          const response = await authFetch(`${API_URL}/api/evento/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify(data),
+          });
+          if (!response.ok) throw new Error("Erro ao atualizar evento");
+          const evento = await response.json();
+          dispatch({ type: "UPDATE_EVENTO", payload: evento });
+        },
+        "eventos",
+        "eventos"
+      );
+    },
+    [handleAsync]
+  );
+
+  const deleteEvento = useCallback(
+    async (id: number) => {
+      await handleAsync(
+        async () => {
+          const response = await authFetch(`${API_URL}/api/evento/${id}`, {
+            method: "DELETE",
+          });
+          if (!response.ok) throw new Error("Erro ao deletar evento");
+          dispatch({ type: "DELETE_EVENTO", payload: id });
+        },
+        "eventos",
+        "eventos"
+      );
+    },
+    [handleAsync]
+  );
+
+  // MONITORIAS - COM useCallback
+  const fetchMonitorias = useCallback(async () => {
     await handleAsync(
       async () => {
         const response = await authFetch(`${API_URL}/api/monitoria`);
         if (!response.ok) throw new Error("Erro ao buscar monitorias");
         const monitorias = await response.json();
-        dispatch({ type: "SET_MONITORIAS", payload: monitorias });
+        dispatch({
+          type: "SET_MONITORIAS",
+          payload: Array.isArray(monitorias) ? monitorias : [],
+        });
       },
       "monitorias",
       "monitorias"
     );
-  };
+  }, [handleAsync]);
 
-  const createMonitoria = async (data: MonitoriaData) => {
+  const createMonitoria = useCallback(
+    async (data: MonitoriaData) => {
+      await handleAsync(
+        async () => {
+          const response = await authFetch(`${API_URL}/api/monitoria`, {
+            method: "POST",
+            body: JSON.stringify(data),
+          });
+          if (!response.ok) throw new Error("Erro ao criar monitoria");
+          const monitoria = await response.json();
+          dispatch({ type: "ADD_MONITORIA", payload: monitoria });
+        },
+        "monitorias",
+        "monitorias"
+      );
+    },
+    [handleAsync]
+  );
+
+  const updateMonitoria = useCallback(
+    async (id: number, data: Partial<MonitoriaData>) => {
+      await handleAsync(
+        async () => {
+          const response = await authFetch(`${API_URL}/api/monitoria/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify(data),
+          });
+          if (!response.ok) throw new Error("Erro ao atualizar monitoria");
+          const monitoria = await response.json();
+          dispatch({ type: "UPDATE_MONITORIA", payload: monitoria });
+        },
+        "monitorias",
+        "monitorias"
+      );
+    },
+    [handleAsync]
+  );
+
+  const deleteMonitoria = useCallback(
+    async (id: number) => {
+      await handleAsync(
+        async () => {
+          const response = await authFetch(`${API_URL}/api/monitoria/${id}`, {
+            method: "DELETE",
+          });
+          if (!response.ok) throw new Error("Erro ao deletar monitoria");
+          dispatch({ type: "DELETE_MONITORIA", payload: id });
+        },
+        "monitorias",
+        "monitorias"
+      );
+    },
+    [handleAsync]
+  );
+
+  // USUÁRIOS - COM useCallback
+  const fetchUsuarios = useCallback(async () => {
     await handleAsync(
       async () => {
-        const response = await authFetch(`${API_URL}/api/monitoria`, {
-          method: "POST",
-          body: JSON.stringify(data),
-        });
-        if (!response.ok) throw new Error("Erro ao criar monitoria");
-        const monitoria = await response.json();
-        dispatch({ type: "ADD_MONITORIA", payload: monitoria });
-      },
-      "monitorias",
-      "monitorias"
-    );
-  };
-
-  const updateMonitoria = async (id: number, data: Partial<MonitoriaData>) => {
-    await handleAsync(
-      async () => {
-        const response = await authFetch(`${API_URL}/api/monitoria/${id}`, {
-          method: "PATCH",
-          body: JSON.stringify(data),
-        });
-        if (!response.ok) throw new Error("Erro ao atualizar monitoria");
-        const monitoria = await response.json();
-        dispatch({ type: "UPDATE_MONITORIA", payload: monitoria });
-      },
-      "monitorias",
-      "monitorias"
-    );
-  };
-
-  const deleteMonitoria = async (id: number) => {
-    await handleAsync(
-      async () => {
-        const response = await authFetch(`${API_URL}/api/monitoria/${id}`, {
-          method: "DELETE",
-        });
-        if (!response.ok) throw new Error("Erro ao deletar monitoria");
-        dispatch({ type: "DELETE_MONITORIA", payload: id });
-      },
-      "monitorias",
-      "monitorias"
-    );
-  };
-
-  // ===================================================================
-  // EVENTOS
-  // ===================================================================
-  const fetchEventos = async () => {
-    await handleAsync(
-      async () => {
-        const response = await authFetch(`${API_URL}/api/evento`);
-        if (!response.ok) throw new Error("Erro ao buscar eventos");
-        const eventos = await response.json();
-        dispatch({ type: "SET_EVENTOS", payload: eventos });
-      },
-      "eventos",
-      "eventos"
-    );
-  };
-
-  const createEvento = async (data: EventoData) => {
-    await handleAsync(
-      async () => {
-        const response = await authFetch(`${API_URL}/api/evento`, {
-          method: "POST",
-          body: JSON.stringify(data),
-        });
-        if (!response.ok) throw new Error("Erro ao criar evento");
-        const evento = await response.json();
-        dispatch({ type: "ADD_EVENTO", payload: evento });
-      },
-      "eventos",
-      "eventos"
-    );
-  };
-
-  const updateEvento = async (id: number, data: Partial<EventoData>) => {
-    await handleAsync(
-      async () => {
-        const response = await authFetch(`${API_URL}/api/evento/${id}`, {
-          method: "PATCH",
-          body: JSON.stringify(data),
-        });
-        if (!response.ok) throw new Error("Erro ao atualizar evento");
-        const evento = await response.json();
-        dispatch({ type: "UPDATE_EVENTO", payload: evento });
-      },
-      "eventos",
-      "eventos"
-    );
-  };
-
-  const deleteEvento = async (id: number) => {
-    await handleAsync(
-      async () => {
-        const response = await authFetch(`${API_URL}/api/evento/${id}`, {
-          method: "DELETE",
-        });
-        if (!response.ok) throw new Error("Erro ao deletar evento");
-        dispatch({ type: "DELETE_EVENTO", payload: id });
-      },
-      "eventos",
-      "eventos"
-    );
-  };
-
-  // ===================================================================
-  // USUÁRIOS (ADMIN)
-  // ===================================================================
-  const fetchUsuarios = async () => {
-    await handleAsync(
-      async () => {
-        const response = await authFetch(`${API_URL}/api/usuarios`);
+        // CORREÇÃO: Endpoint corrigido para /usuarios
+        const response = await authFetch(`${API_URL}/usuarios`);
         if (!response.ok) throw new Error("Erro ao buscar usuários");
         const usuarios = await response.json();
-        dispatch({ type: "SET_USUARIOS", payload: usuarios });
-      },
-      "usuarios",
-      "usuarios"
-    );
-  };
-
-  const updateUsuario = async (id: string, data: Partial<Usuario>) => {
-    await handleAsync(
-      async () => {
-        const response = await authFetch(`${API_URL}/api/usuarios/${id}`, {
-          method: "PATCH",
-          body: JSON.stringify(data),
-        });
-        if (!response.ok) throw new Error("Erro ao atualizar usuário");
-        const usuario = await response.json();
         dispatch({
           type: "SET_USUARIOS",
-          payload: state.usuarios.map((u) =>
-            u.id === id ? { ...u, ...data } : u
-          ),
+          payload: Array.isArray(usuarios) ? usuarios : [],
         });
       },
       "usuarios",
       "usuarios"
     );
-  };
+  }, [handleAsync]);
 
-  const deleteUsuario = async (id: string) => {
-    await handleAsync(
-      async () => {
-        const response = await authFetch(`${API_URL}/api/usuarios/${id}`, {
-          method: "DELETE",
-        });
-        if (!response.ok) throw new Error("Erro ao deletar usuário");
-        dispatch({
-          type: "SET_USUARIOS",
-          payload: state.usuarios.filter((u) => u.id !== id),
-        });
-      },
-      "usuarios",
-      "usuarios"
-    );
-  };
+  const updateUsuario = useCallback(
+    async (id: string, data: Partial<Usuario>) => {
+      await handleAsync(
+        async () => {
+          const response = await authFetch(`${API_URL}/usuarios/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify(data),
+          });
+          if (!response.ok) throw new Error("Erro ao atualizar usuário");
+          const usuario = await response.json();
+          dispatch({ type: "SET_USUARIOS", payload: [usuario] });
+        },
+        "usuarios",
+        "usuarios"
+      );
+    },
+    [handleAsync]
+  );
 
-  const toggleUsuarioStatus = async (id: string, ativo: boolean) => {
-    await updateUsuario(id, { ativo });
-  };
+  const deleteUsuario = useCallback(
+    async (id: string) => {
+      await handleAsync(
+        async () => {
+          const response = await authFetch(`${API_URL}/usuarios/${id}`, {
+            method: "DELETE",
+          });
+          if (!response.ok) throw new Error("Erro ao deletar usuário");
+          dispatch({
+            type: "SET_USUARIOS",
+            payload: state.usuarios.filter((u) => u.id !== id),
+          });
+        },
+        "usuarios",
+        "usuarios"
+      );
+    },
+    [handleAsync, state.usuarios]
+  );
 
-  // ===================================================================
-  // MASTER DATA - ENDPOINTS REAIS!!!
-  // ===================================================================
-  const fetchDisciplinas = async () => {
+  const toggleUsuarioStatus = useCallback(
+    async (id: string, ativo: boolean) => {
+      await updateUsuario(id, { ativo });
+    },
+    [updateUsuario]
+  );
+
+  // MASTER DATA - COM useCallback
+  const fetchDisciplinas = useCallback(async () => {
     try {
       const response = await authFetch(`${API_URL}/api/catalogo/disciplinas`);
       if (!response.ok) {
         throw new Error(`Erro ao buscar disciplinas: ${response.status}`);
       }
       const disciplinas = await response.json();
-      dispatch({ type: "SET_DISCIPLINAS", payload: disciplinas });
+      dispatch({
+        type: "SET_DISCIPLINAS",
+        payload: Array.isArray(disciplinas) ? disciplinas : [],
+      });
     } catch (error) {
+      console.error("Erro ao buscar disciplinas:", error);
       dispatch({ type: "SET_DISCIPLINAS", payload: [] });
       throw error;
     }
-  };
+  }, []);
 
-  const fetchCursos = async () => {
+  const fetchCursos = useCallback(async () => {
     try {
       const response = await authFetch(`${API_URL}/api/catalogo/cursos`);
       if (!response.ok) {
         throw new Error(`Erro ao buscar cursos: ${response.status}`);
       }
       const cursos = await response.json();
-      dispatch({ type: "SET_CURSOS", payload: cursos });
+      dispatch({
+        type: "SET_CURSOS",
+        payload: Array.isArray(cursos) ? cursos : [],
+      });
     } catch (error) {
+      console.error("Erro ao buscar cursos:", error);
       dispatch({ type: "SET_CURSOS", payload: [] });
       throw error;
     }
-  };
+  }, []);
 
-  const fetchMasterData = async () => {
+  const fetchMasterData = useCallback(async () => {
     await handleAsync(
       async () => {
         const promises = [
-          fetchDisciplinas().catch((error) => {
-            return null;
-          }),
-          fetchCursos().catch((error) => {
-            return null;
-          }),
+          fetchDisciplinas().catch(() => null),
+          fetchCursos().catch(() => null),
         ];
-
         await Promise.allSettled(promises);
       },
       "masterData",
       "masterData"
     );
-  };
+  }, [handleAsync, fetchDisciplinas, fetchCursos]);
 
-  // ===================================================================
-  // CONTEXT VALUE
-  // ===================================================================
-  const contextValue: AppContextType = {
-    ...state,
-    fetchProjetos,
-    createProjeto,
-    updateProjeto,
-    deleteProjeto,
-    fetchMonitorias,
-    createMonitoria,
-    updateMonitoria,
-    deleteMonitoria,
-    fetchEventos,
-    createEvento,
-    updateEvento,
-    deleteEvento,
-    fetchUsuarios,
-    updateUsuario,
-    deleteUsuario,
-    toggleUsuarioStatus,
-    fetchMasterData,
-    fetchDisciplinas,
-    fetchCursos,
-  };
+  // CORREÇÃO: Memoizar o valor do contexto
+  const contextValue = useMemo<AppContextType>(
+    () => ({
+      ...state,
+      fetchProjetos,
+      createProjeto,
+      updateProjeto,
+      deleteProjeto,
+      fetchMonitorias,
+      createMonitoria,
+      updateMonitoria,
+      deleteMonitoria,
+      fetchEventos,
+      createEvento,
+      updateEvento,
+      deleteEvento,
+      fetchUsuarios,
+      updateUsuario,
+      deleteUsuario,
+      toggleUsuarioStatus,
+      fetchMasterData,
+      fetchDisciplinas,
+      fetchCursos,
+    }),
+    [
+      state,
+      fetchProjetos,
+      createProjeto,
+      updateProjeto,
+      deleteProjeto,
+      fetchMonitorias,
+      createMonitoria,
+      updateMonitoria,
+      deleteMonitoria,
+      fetchEventos,
+      createEvento,
+      updateEvento,
+      deleteEvento,
+      fetchUsuarios,
+      updateUsuario,
+      deleteUsuario,
+      toggleUsuarioStatus,
+      fetchMasterData,
+      fetchDisciplinas,
+      fetchCursos,
+    ]
+  );
 
   return (
     <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>
   );
 }
 
-// ===================================================================
-// HOOKS
-// ===================================================================
+// Hooks de acesso (mantendo os mesmos)
 export function useApp() {
   const context = useContext(AppContext);
-  if (context === undefined) {
-    throw new Error("useApp must be used within an AppProvider");
+
+  if (!context) {
+    console.error("useApp deve ser usado dentro de um AppProvider");
+    return defaultContextValue;
   }
+
   return context;
 }
 
 export function useProjetos() {
-  const {
-    projetos,
-    loading,
-    error,
-    fetchProjetos,
-    createProjeto,
-    updateProjeto,
-    deleteProjeto,
-  } = useApp();
+  const context = useApp();
 
   return {
-    projetos,
-    loading: loading.projetos,
-    error: error.projetos,
-    fetchProjetos,
-    createProjeto,
-    updateProjeto,
-    deleteProjeto,
+    projetos: context.projetos || [],
+    loading: context.loading?.projetos || false,
+    error: context.error?.projetos || null,
+    fetchProjetos: context.fetchProjetos,
+    createProjeto: context.createProjeto,
+    updateProjeto: context.updateProjeto,
+    deleteProjeto: context.deleteProjeto,
   };
 }
 
 export function useMonitorias() {
-  const {
-    monitorias,
-    loading,
-    error,
-    fetchMonitorias,
-    createMonitoria,
-    updateMonitoria,
-    deleteMonitoria,
-  } = useApp();
+  const context = useApp();
 
   return {
-    monitorias,
-    loading: loading.monitorias,
-    error: error.monitorias,
-    fetchMonitorias,
-    createMonitoria,
-    updateMonitoria,
-    deleteMonitoria,
+    monitorias: context.monitorias || [],
+    loading: context.loading?.monitorias || false,
+    error: context.error?.monitorias || null,
+    fetchMonitorias: context.fetchMonitorias,
+    createMonitoria: context.createMonitoria,
+    updateMonitoria: context.updateMonitoria,
+    deleteMonitoria: context.deleteMonitoria,
   };
 }
 
 export function useEventos() {
-  const {
-    eventos,
-    loading,
-    error,
-    fetchEventos,
-    createEvento,
-    updateEvento,
-    deleteEvento,
-  } = useApp();
+  const context = useApp();
 
   return {
-    eventos,
-    loading: loading.eventos,
-    error: error.eventos,
-    fetchEventos,
-    createEvento,
-    updateEvento,
-    deleteEvento,
+    eventos: context.eventos || [],
+    loading: context.loading?.eventos || false,
+    error: context.error?.eventos || null,
+    fetchEventos: context.fetchEventos,
+    createEvento: context.createEvento,
+    updateEvento: context.updateEvento,
+    deleteEvento: context.deleteEvento,
   };
 }
 
 export function useAdmin() {
-  const {
-    usuarios,
-    loading,
-    error,
-    fetchUsuarios,
-    updateUsuario,
-    deleteUsuario,
-    toggleUsuarioStatus,
-  } = useApp();
+  const context = useApp();
 
   return {
-    usuarios,
-    loading: loading.usuarios,
-    error: error.usuarios,
-    fetchUsuarios,
-    updateUsuario,
-    deleteUsuario,
-    toggleUsuarioStatus,
+    usuarios: context.usuarios || [],
+    loading: context.loading?.usuarios || false,
+    error: context.error?.usuarios || null,
+    fetchUsuarios: context.fetchUsuarios,
+    updateUsuario: context.updateUsuario,
+    deleteUsuario: context.deleteUsuario,
+    toggleUsuarioStatus: context.toggleUsuarioStatus,
   };
 }
 
 export function useMasterData() {
-  const {
-    disciplinas,
-    cursos,
-    loading,
-    error,
-    fetchMasterData,
-    fetchDisciplinas,
-    fetchCursos,
-  } = useApp();
+  const context = useApp();
 
   return {
-    disciplinas,
-    cursos,
-    loading: loading.masterData,
-    error: error.masterData,
-    fetchMasterData,
-    fetchDisciplinas,
-    fetchCursos,
+    disciplinas: context.disciplinas || [],
+    cursos: context.cursos || [],
+    loading: context.loading?.masterData || false,
+    error: context.error?.masterData || null,
+    fetchMasterData: context.fetchMasterData,
+    fetchDisciplinas: context.fetchDisciplinas,
+    fetchCursos: context.fetchCursos,
   };
 }

@@ -51,23 +51,23 @@ import {
 import { toast } from "sonner";
 
 const monitoriaSchema = z.object({
-  disciplinaId: z.number({ required_error: "Selecione uma disciplina" }),
-  cursoId: z.number({ required_error: "Selecione um curso" }),
-  semestre: z.string({ required_error: "Selecione o semestre" }),
-  cargaHoraria: z.number().min(1, { message: "A carga horária é obrigatória" }),
   dataInicio: z.string({ required_error: "A data de início é obrigatória" }),
   dataTermino: z.string({ required_error: "A data de término é obrigatória" }),
+  bolsa: z.boolean(),
+  cursoId: z.number({ required_error: "Selecione um curso" }),
+  semestre: z.string({ required_error: "Selecione o semestre" }),
   diasSemana: z
     .array(z.string())
     .min(1, { message: "Selecione pelo menos um dia da semana" }),
+  cargaHoraria: z.number().min(1, { message: "A carga horária é obrigatória" }),
   horarioInicio: z.string({
     required_error: "O horário de início é obrigatório",
   }),
   horarioTermino: z.string({
     required_error: "O horário de término é obrigatório",
   }),
+  disciplinaId: z.number({ required_error: "Selecione uma disciplina" }),
   sala: z.string().optional(),
-  bolsa: z.boolean().default(false),
   valorBolsa: z.number().optional(),
   requisitos: z.string().optional(),
   atividades: z.string().optional(),
@@ -129,28 +129,28 @@ export default function EditMonitoriaPage() {
 
   useEffect(() => {
     fetchMasterData();
-  }, []);
+  }, [fetchMasterData]);
 
   useEffect(() => {
     const monitoria = monitorias.find((m) => m.id.toString() === monitoriaId);
     if (monitoria) {
       form.reset({
-        disciplinaId: monitoria.disciplinaId,
-        cursoId: monitoria.cursoId,
-        semestre: monitoria.semestre,
-        cargaHoraria: monitoria.cargaHoraria,
-        dataInicio: monitoria.dataInicio,
-        dataTermino: monitoria.dataTermino,
-        diasSemana: monitoria.diasSemana,
-        horarioInicio: monitoria.horarioInicio,
-        horarioTermino: monitoria.horarioTermino,
-        sala: monitoria.sala || "",
-        bolsa: monitoria.bolsa,
-        valorBolsa: monitoria.valorBolsa || 0,
-        requisitos: monitoria.requisitos || "",
-        atividades: monitoria.atividades || "",
-        alunoPreSelecionado: monitoria.alunoPreSelecionado || "",
-        termosAceitos: monitoria.termosAceitos,
+        disciplinaId: monitoria.id ?? 0,
+        cursoId: monitoria.cursoId ?? 0,
+        semestre: monitoria.semestre ?? "",
+        cargaHoraria: monitoria.cargaHoraria ?? 0,
+        dataInicio: monitoria.dataInicio ?? "",
+        dataTermino: monitoria.dataTermino ?? "",
+        diasSemana: monitoria.diasSemana ?? [],
+        horarioInicio: monitoria.horarioInicio ?? "",
+        horarioTermino: monitoria.horarioTermino ?? "",
+        sala: monitoria.sala ?? "",
+        bolsa: monitoria.bolsa ?? false,
+        valorBolsa: monitoria.valorBolsa ?? 0,
+        requisitos: monitoria.requisitos ?? "",
+        atividades: monitoria.atividades ?? "",
+        alunoPreSelecionado: monitoria.alunoPreSelecionado ?? "",
+        termosAceitos: monitoria.termosAceitos ?? false,
       });
       setIsLoading(false);
     }
@@ -166,13 +166,11 @@ export default function EditMonitoriaPage() {
 
   async function onSubmit(values: MonitoriaFormValues) {
     setIsSubmitting(true);
-
     try {
       const monitoriaData: Partial<MonitoriaData> = {
         ...values,
         valorBolsa: values.bolsa ? values.valorBolsa : undefined,
       };
-
       await updateMonitoria(parseInt(monitoriaId), monitoriaData);
       toast.success("Monitoria atualizada com sucesso!");
       router.push("/monitorias");

@@ -127,7 +127,7 @@ export default function NewMonitoriaPage() {
 
   useEffect(() => {
     fetchMasterData();
-  }, []);
+  }, [fetchMasterData]);
 
   const toggleDiaSemana = (dia: string) => {
     const currentDias = form.getValues("diasSemana");
